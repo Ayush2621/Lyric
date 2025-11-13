@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="shortcut icon" type="x-icon" href="lyric.png">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lyric — Web Music</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">Lyric</div>
+        <div>
+          <div class="title">Lyric</div>
+          <div style="font-size:12px;color:var(--muted)">The World Of Music</div>
+        </div>
+      </div>
+      <div class="top-right">
+        <div class="app-icon" title="App icon (top-right)">
+          <img src="lyric.png" alt="Custom App Icon" width="22" height="22">
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <input id="searchInput" type="search" placeholder="Search songs and artists..." />
+      <div id="homeView" class="home-view">
+        <div class="song-list" id="songList"></div>
+      </div>
+      <div id="libraryView" class="home-view" style="display:none;padding-top:12px;">
+        <div class="library" id="libraryList"></div>
+      </div>
+    </div>
+
+    <!-- 🎧 Mini Player -->
+    <div id="miniPlayer" class="mini-player" style="display:none;" role="status">
+      <div class="progress-bar-container" id="progressContainer">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <div class="controls-row">
+        <div class="time-display">
+          <span id="currentTimeDisplay">0:00</span> / <span id="durationDisplay">0:00</span>
+        </div>
+        <div class="mini-meta">
+          <div id="miniTitle" class="title"></div>
+          <div id="miniArtist" class="artist"></div>
+        </div>
+        <div class="mini-controls">
+          <button id="btnPrev" class="btn-circle" title="Previous Song">⏮️</button>
+          <button id="btnRewind" class="btn-circle" title="Rewind 10s">⏪</button>
+          <button id="miniPlayToggle" class="btn-circle large" aria-label="Play/Pause">▶️</button>
+          <button id="btnForward" class="btn-circle" title="Forward 10s">⏩</button>
+          <button id="btnNext" class="btn-circle" title="Next Song">⏭️</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <button id="navHome" class="nav-btn active">
+        <svg width="24" height="24" viewBox="0 0 24 24">
+          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/>
+        </svg>
+        Home
+      </button>
+      <button id="navLibrary" class="nav-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24">
+          <path d="M4 6H2v15h15v-2H4V6zm18-4H7v15h15V2zm-2 13H9V4h11v11zM11 6h4v2h-4V6zm0 3h4v2h-4V9zm0 3h4v2h-4v-2z" fill="currentColor"/>
+        </svg>
+        Library
+      </button>
+      <button id="navProfile" class="nav-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
+        </svg>
+        About
+      </button>
+    </div>
+
+    <!-- About Modal -->
+    <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
+      <div id="profileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <h3 id="modalTitle">About Lyric</h3>
+        <p style="color:var(--muted);margin:6px 0 0 0">
+          Lyric is a user-friendly music player built for seamless song browsing and playback.<br>
+          With responsive controls and a visually appealing layout, it enhances your music experience.<br>
+          <p>Developed by Ayush Mishra.</p>
+        </p>
+        <div class="row" style="justify-content:flex-end;">
+          <button id="closeModal" class="btn-circle" style="width:38px;height:38px;border-radius:8px">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audio element -->
+    <audio id="audio" preload="metadata" type="audio/mp4"></audio>
+
+    <template id="menuTemplate">
+      <div class="menu-list" role="menu">
+        <button data-action="add" role="menuitem">Add to existing playlist...</button>
+        <button data-action="create" role="menuitem">Create new playlist</button>
+      </div>
+    </template>
+  </div>
+
+  <!-- ✅ External JavaScript file -->
+  <script src="script.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
