@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <link rel="shortcut icon" type="x-icon" href="lyric.png">
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Lyric — Web Music</title>
+  <link rel="shortcut icon" type="image/x-icon" href="lyric.png">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -24,77 +24,134 @@
       </div>
     </div>
 
-    <div class="content">
+    <div class="content" id="mainContent">
       <input id="searchInput" type="search" placeholder="Search songs and artists..." />
+
       <div id="homeView" class="home-view">
         <div class="song-list" id="songList"></div>
       </div>
+
       <div id="libraryView" class="home-view" style="display:none;padding-top:12px;">
         <div class="library" id="libraryList"></div>
       </div>
     </div>
 
-    <!-- 🎧 Mini Player -->
-    <div id="miniPlayer" class="mini-player" style="display:none;" role="status">
-      <div class="progress-bar-container" id="progressContainer">
-        <div id="progressBar" class="progress-bar"></div>
+    <!-- Mini player (YouTube Music style with cover) -->
+    <div id="miniPlayer" class="mini-player" aria-hidden="true" role="region" aria-label="Now playing">
+      <div class="mini-top">
+        <div class="mini-progress-wrap" id="progressContainer" title="Seek">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
       </div>
-      <div class="controls-row">
-        <div class="time-display">
-          <span id="currentTimeDisplay">0:00</span> / <span id="durationDisplay">0:00</span>
+
+      <div class="mini-body" id="miniBody">
+        <div class="mini-left">
+          <div class="mini-cover" id="miniCover" aria-hidden="true"></div>
         </div>
-        <div class="mini-meta">
-          <div id="miniTitle" class="title"></div>
-          <div id="miniArtist" class="artist"></div>
+
+        <div class="mini-middle">
+          <div class="mini-meta-title">
+            <div class="marquee-wrap">
+              <div id="miniTitle" class="mini-title marquee"></div>
+            </div>
+            <div id="miniArtist" class="mini-artist"></div>
+          </div>
         </div>
-        <div class="mini-controls">
-          <button id="btnPrev" class="btn-circle" title="Previous Song">⏮️</button>
-          <button id="btnRewind" class="btn-circle" title="Rewind 10s">⏪</button>
-          <button id="miniPlayToggle" class="btn-circle large" aria-label="Play/Pause">▶️</button>
-          <button id="btnForward" class="btn-circle" title="Forward 10s">⏩</button>
-          <button id="btnNext" class="btn-circle" title="Next Song">⏭️</button>
+
+        <div class="mini-right">
+          <div class="mini-controls">
+            <button id="btnShuffle" class="btn-circle small" title="Shuffle" aria-label="Shuffle">🔀</button>
+            <button id="btnPrev" class="btn-circle small" title="Previous" aria-label="Previous">⏮</button>
+            <button id="miniPlayToggle" class="btn-circle large" aria-label="Play/Pause">
+              <svg id="miniPlayIcon" width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M5 3v18l15-9L5 3z" fill="white"/></svg>
+            </button>
+            <button id="btnNext" class="btn-circle small" title="Next" aria-label="Next">⏭</button>
+            <button id="btnRepeat" class="btn-circle small" title="Repeat" aria-label="Repeat">🔁</button>
+            <button id="btnExpand" class="btn-circle small" title="Open player" aria-label="Open full player">⤢</button>
+          </div>
+          <div class="mini-time">
+            <span id="currentTimeDisplay">0:00</span> / <span id="durationDisplay">0:00</span>
+          </div>
         </div>
       </div>
     </div>
 
+    <!-- Fullscreen Player Modal -->
+    <div id="fullScreenPlayer" class="fullscreen-player" aria-hidden="true" role="dialog" aria-label="Full screen player">
+      <div id="fsBackdrop" class="fs-backdrop"></div>
+
+      <div class="fs-card" role="document" id="fsCard">
+        <button id="fsClose" class="fs-close" aria-label="Close player">✕</button>
+
+        <div class="fs-top">
+          <div class="fs-cover" id="fsCover"></div>
+          <div class="fs-meta">
+            <h2 id="fsTitle" class="fs-title"></h2>
+            <div id="fsArtist" class="fs-artist"></div>
+            <div class="fs-controls">
+              <button id="fsPrev" class="btn-circle small">⏮</button>
+              <button id="fsPlay" class="btn-circle large">▶</button>
+              <button id="fsNext" class="btn-circle small">⏭</button>
+              <button id="fsShuffle" class="btn-circle small">🔀</button>
+              <button id="fsRepeat" class="btn-circle small">🔁</button>
+            </div>
+            <div class="fs-time"><span id="fsCurrent">0:00</span> / <span id="fsDuration">0:00</span></div>
+          </div>
+        </div>
+
+        <div class="fs-progress" id="fsProgressWrap" title="Seek">
+          <div id="fsProgress" class="fs-progress-bar"></div>
+        </div>
+
+        <div class="fs-tabs">
+          <button class="tab-btn active" data-tab="player">Player</button>
+          <button class="tab-btn" data-tab="lyrics">Lyrics</button>
+        </div>
+
+        <div class="fs-panel fs-panel-player" data-panel="player">
+          <div class="fs-player-centered">
+            <!-- Large cover + extra info -->
+            <div id="fsLargeCover" class="fs-large-cover"></div>
+            <div id="fsDescription" class="fs-description"></div>
+          </div>
+        </div>
+
+        <div class="fs-panel fs-panel-lyrics" data-panel="lyrics" style="display:none;">
+          <div id="lyricsContainer" class="lyrics-container">
+            <div id="lyricsContent" class="lyrics-content">No lyrics available for this song.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom nav -->
     <div class="bottom-nav">
       <button id="navHome" class="nav-btn active">
-        <svg width="24" height="24" viewBox="0 0 24 24">
-          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/>
-        </svg>
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/></svg>
         Home
       </button>
       <button id="navLibrary" class="nav-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24">
-          <path d="M4 6H2v15h15v-2H4V6zm18-4H7v15h15V2zm-2 13H9V4h11v11zM11 6h4v2h-4V6zm0 3h4v2h-4V9zm0 3h4v2h-4v-2z" fill="currentColor"/>
-        </svg>
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M4 6H2v15h15v-2H4V6zm18-4H7v15h15V2zm-2 13H9V4h11v11zM11 6h4v2h-4V6zm0 3h4v2h-4V9zm0 3h4v2h-4v-2z" fill="currentColor"/></svg>
         Library
       </button>
       <button id="navProfile" class="nav-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24">
-          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
-        </svg>
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
         About
       </button>
     </div>
 
-    <!-- About Modal -->
     <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
       <div id="profileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <h3 id="modalTitle">About Lyric</h3>
-        <p style="color:var(--muted);margin:6px 0 0 0">
-          Lyric is a user-friendly music player built for seamless song browsing and playback.<br>
-          With responsive controls and a visually appealing layout, it enhances your music experience.<br>
-          <p>Developed by Ayush Mishra.</p>
-        </p>
+        <p style="color:var(--muted);margin:6px 0 0 0">Lyric is a user-friendly music player built for seamless song browsing and playback.<br>With responsive controls and a visually appealing layout, it enhances your music experience.<br><p>Developed Ayush Mishra.</p></p>
         <div class="row" style="justify-content:flex-end;">
           <button id="closeModal" class="btn-circle" style="width:38px;height:38px;border-radius:8px">OK</button>
         </div>
       </div>
     </div>
 
-    <!-- Audio element -->
-    <audio id="audio" preload="metadata" type="audio/mp4"></audio>
+    <audio id="audio" preload="metadata"></audio>
 
     <template id="menuTemplate">
       <div class="menu-list" role="menu">
@@ -102,12 +159,13 @@
         <button data-action="create" role="menuitem">Create new playlist</button>
       </div>
     </template>
+
   </div>
 
-  <!-- ✅ External JavaScript file -->
   <script src="script.js"></script>
 </body>
 </html>
+
 
 
 
