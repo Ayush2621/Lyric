@@ -13,7 +13,7 @@
       <div class="brand">
         <div class="logo">Lyric</div>
         <div>
-          <div class="title">Lyric</div>
+          <div class="title"></div>
           <div style="font-size:12px;color:var(--muted)">The World Of Music</div>
         </div>
       </div>
@@ -36,7 +36,6 @@
       </div>
     </div>
 
-    <!-- Mini player (YouTube Music style with cover) -->
     <div id="miniPlayer" class="mini-player" aria-hidden="true" role="region" aria-label="Now playing">
       <div class="mini-top">
         <div class="mini-progress-wrap" id="progressContainer" title="Seek">
@@ -76,7 +75,6 @@
       </div>
     </div>
 
-    <!-- Fullscreen Player Modal -->
     <div id="fullScreenPlayer" class="fullscreen-player" aria-hidden="true" role="dialog" aria-label="Full screen player">
       <div id="fsBackdrop" class="fs-backdrop"></div>
 
@@ -110,7 +108,6 @@
 
         <div class="fs-panel fs-panel-player" data-panel="player">
           <div class="fs-player-centered">
-            <!-- Large cover + extra info -->
             <div id="fsLargeCover" class="fs-large-cover"></div>
             <div id="fsDescription" class="fs-description"></div>
           </div>
@@ -125,7 +122,39 @@
       </div>
     </div>
 
-    <!-- Bottom nav -->
+    <div id="addPlaylistModalBackdrop" class="modal-backdrop" aria-hidden="true" style="display: none;">
+      <div id="addPlaylistModal" class="modal playlist-modal" role="dialog" aria-modal="true" aria-labelledby="addPlaylistTitle">
+        <h3 id="addPlaylistTitle">Add Song to Playlist</h3>
+        <button class="modal-close-btn" aria-label="Close">✕</button>
+        <div id="addPlaylistList" class="playlist-list">
+          </div>
+      </div>
+    </div>
+
+    <div id="createPlaylistModalBackdrop" class="modal-backdrop" aria-hidden="true" style="display: none;">
+      <div id="createPlaylistModal" class="modal create-playlist-modal" role="dialog" aria-modal="true" aria-labelledby="createPlaylistTitle">
+        <h3 id="createPlaylistTitle">Create New Playlist</h3>
+        <button class="modal-close-btn" aria-label="Close">✕</button>
+        <div class="input-group">
+          <label for="newPlaylistInput">Playlist Name</label>
+          <input type="text" id="newPlaylistInput" placeholder="My Awesome Jams" required>
+        </div>
+        <div class="row" style="justify-content:flex-end; margin-top: 15px;">
+          <button id="createPlaylistConfirmBtn" class="btn-primary" style="padding: 8px 15px;">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
+      <div id="profileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <h3 id="modalTitle">About Lyric</h3>
+        <p style="color:var(--muted);margin:6px 0 0 0">Lyric is a user-friendly music player built for seamless song browsing and playback.<br>With responsive controls and a visually appealing layout, it enhances your music experience.<br><p>Developed Ayush Mishra.</p></p>
+        <div class="row" style="justify-content:flex-end;">
+          <button id="closeModal" class="btn-circle" style="width:38px;height:38px;border-radius:8px">OK</button>
+        </div>
+      </div>
+    </div>
+
     <div class="bottom-nav">
       <button id="navHome" class="nav-btn active">
         <svg width="24" height="24" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/></svg>
@@ -139,16 +168,6 @@
         <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
         About
       </button>
-    </div>
-
-    <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
-      <div id="profileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-        <h3 id="modalTitle">About Lyric</h3>
-        <p style="color:var(--muted);margin:6px 0 0 0">Lyric is a user-friendly music player built for seamless song browsing and playback.<br>With responsive controls and a visually appealing layout, it enhances your music experience.<br><p>Developed Ayush Mishra.</p></p>
-        <div class="row" style="justify-content:flex-end;">
-          <button id="closeModal" class="btn-circle" style="width:38px;height:38px;border-radius:8px">OK</button>
-        </div>
-      </div>
     </div>
 
     <audio id="audio" preload="metadata"></audio>
@@ -165,14 +184,3 @@
   <script src="script.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
