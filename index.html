@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Lyric — Web Music</title>
-  <link rel="shortcut icon" type="image/x-icon" href="lyric.png">
+  <link rel="shortcut icon" type="x-icon" href="lyric.png">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -29,7 +29,63 @@
       <input id="searchInput" type="search" placeholder="Search songs and artists..." />
 
       <div id="homeView" class="home-view">
-        <div class="song-list" id="songList"></div>
+        
+        <div class="carousel-section">
+          <h3 style="margin: 0 0 12px 8px; font-size: 16px; color: var(--muted); font-weight:700;">Featured Artists</h3>
+          
+          <div id="singerCarousel" class="singer-carousel">
+            <div class="singer-card">
+              <img src="arijit-singh.jpg" alt="Arijit" class="singer-img">
+              <div class="singer-name">Arijit Singh</div>
+            </div>
+            <div class="singer-card">
+              <img src="the-weeknd.jpg" alt="Sid Sriram" class="singer-img">
+              <div class="singer-name">The Weeknd</div>
+            </div>
+            <div class="singer-card">
+              <img src="shreya_ghoshal.jpg" alt="Shreya" class="singer-img">
+              <div class="singer-name">Shreya Ghoshal</div>
+            </div>
+            <div class="singer-card">
+              <img src="2pac.jpg" alt="Anirudh" class="singer-img">
+              <div class="singer-name">2Pac</div>
+            </div>
+            <div class="singer-card">
+              <img src="madhu_priya.jpeg" alt="DSP" class="singer-img">
+              <div class="singer-name">Madhu Priya</div>
+            </div>
+            <div class="singer-card">
+              <img src="eminem.jpg" alt="Thaman" class="singer-img">
+              <div class="singer-name">Eminem</div>
+            </div>
+            <div class="singer-card">
+              <img src="Sonu-Nigam.jpg" alt="Sonu" class="singer-img">
+              <div class="singer-name">Sonu Nigam</div>
+            </div>
+            <div class="singer-card">
+              <img src="21-savage.jpg" alt="SPB" class="singer-img">
+              <div class="singer-name">21 Savage</div>
+            </div>
+            <div class="singer-card">
+              <img src="snoop-dogg.jpg" alt="Chithra" class="singer-img">
+              <div class="singer-name">Snoop Dogg</div>
+            </div>
+            <div class="singer-card">
+              <img src="Ar.jpg" alt="Rahman" class="singer-img">
+              <div class="singer-name">AR Rahman</div>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="categoryNavHeader" style="display:none; align-items:center; gap:12px; margin-bottom:15px;">
+           <button id="btnBackToCategories" class="btn-circle small" style="background:var(--card);">←</button>
+           <h2 id="currentCategoryTitle" style="margin:0; font-size:20px; color:var(--text);">Category Name</h2>
+        </div>
+
+        <div id="categoriesGrid" class="categories-grid"></div>
+
+        <div class="song-list" id="songList" style="display:none;"></div>
       </div>
 
       <div id="libraryView" class="home-view" style="display:none;padding-top:12px;">
@@ -114,12 +170,11 @@
           </div>
         </div>
         
-        <!-- LYRICS TAB PANEL (correct and final) -->
         <div class="fs-panel fs-panel-lyrics" data-panel="lyrics" style="display:none;">
          <div id="lyricsContainer" class="lyrics-container">
-       <div id="lyricsContent" class="lyrics-content">
+           <div id="lyricsContent" class="lyrics-content">
              No lyrics available for this song.
-        </div>
+            </div>
          </div>
         </div>
       </div>
@@ -174,14 +229,6 @@
     </div>
 
     <audio id="audio" preload="metadata"></audio>
-
-    <template id="menuTemplate">
-      <div class="menu-list" role="menu">
-        <button data-action="add" role="menuitem">Add to existing playlist...</button>
-        <button data-action="create" role="menuitem">Create new playlist</button>
-      </div>
-    </template>
-
   </div>
 </div>
   <script src="script.js"></script>
