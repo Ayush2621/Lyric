@@ -7097,27 +7097,83 @@ const categoryNavHeader = document.getElementById('categoryNavHeader');
 const btnBackToCategories = document.getElementById('btnBackToCategories');
 const currentCategoryTitle = document.getElementById('currentCategoryTitle');
 
-// --- Audio Context & Bass Boost Setup ---
+/* =================================================================
+   🚀 MAX VOLUME AUDIO ENGINE (High Gain + Deep Bass)
+   =================================================================
+*/
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const sourceNode = audioCtx.createMediaElementSource(audio);
 
+// 1. Bass Filter (Deep Sub-Bass)
+// Frequency moved to 60Hz for that "Thump" feeling
 const bassFilter = audioCtx.createBiquadFilter();
 bassFilter.type = 'lowshelf';
-bassFilter.frequency.setValueAtTime(200, audioCtx.currentTime); 
-bassFilter.gain.setValueAtTime(2, audioCtx.currentTime); 
+bassFilter.frequency.setValueAtTime(60, audioCtx.currentTime); 
 
+// 2. Treble Filter (Vocal Clarity)
+// High shelf to keep lyrics crisp even when bass is high
 const trebleFilter = audioCtx.createBiquadFilter();
-trebleFilter.type = 'lowshelf';
-trebleFilter.frequency.setValueAtTime(1000, audioCtx.currentTime);
-trebleFilter.gain.setValueAtTime(1, audioCtx.currentTime);
+trebleFilter.type = 'highshelf';
+trebleFilter.frequency.setValueAtTime(3000, audioCtx.currentTime);
 
+// 3. Dynamics Compressor (The Limiter)
+// Tweaked to allow MORE volume before cutting off (Higher threshold)
+const compressor = audioCtx.createDynamicsCompressor();
+compressor.threshold.setValueAtTime(-10, audioCtx.currentTime); // Was -24, raised to -10 for louder peaks
+compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+compressor.attack.setValueAtTime(0, audioCtx.currentTime);
+compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+
+// 4. Pre-Amp (Volume Booster)
+// Boosts signal by 300% (3.0x) - significantly louder
+const preAmpNode = audioCtx.createGain();
+preAmpNode.gain.setValueAtTime(3.0, audioCtx.currentTime); 
+
+// 5. Master Gain
 const gainNode = audioCtx.createGain();
 gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
 
+// --- CONNECT THE AUDIO CHAIN ---
 sourceNode.connect(bassFilter);
 bassFilter.connect(trebleFilter);
-trebleFilter.connect(gainNode);
+trebleFilter.connect(preAmpNode); // Boost volume FIRST
+preAmpNode.connect(compressor);   // Then compress to prevent cracking
+compressor.connect(gainNode);
 gainNode.connect(audioCtx.destination);
+
+/* 🎶 SMART EQ: Automatically adjusts audio based on Song Name/Artist
+*/
+function applySmartEQ(song) {
+    if(!song) return;
+    const text = (song.name + " " + song.artist).toLowerCase();
+    const now = audioCtx.currentTime;
+
+    const isDJ = text.includes('dj') || text.includes('remix') || text.includes('mix') || text.includes('bass') || text.includes('trap') || text.includes('club');
+    const isMelody = text.includes('sid sriram') || text.includes('arijit') || text.includes('shreya') || text.includes('love') || text.includes('reprise');
+    const isDevotional = text.includes('bhakti') || text.includes('aarti') || text.includes('hanuman') || text.includes('shiv');
+
+    // Reset Gains smoothly
+    bassFilter.gain.cancelScheduledValues(now);
+    trebleFilter.gain.cancelScheduledValues(now);
+
+    if (isDJ) {
+        // --- DJ MODE (Max Bass) ---
+        // Bass boosted to +12dB (Very high)
+        bassFilter.gain.linearRampToValueAtTime(12, now + 0.2);   
+        trebleFilter.gain.linearRampToValueAtTime(4, now + 0.2); 
+    } 
+    else if (isMelody || isDevotional) {
+        // --- VOCAL MODE (Clear & Loud) ---
+        bassFilter.gain.linearRampToValueAtTime(5, now + 0.2);   
+        trebleFilter.gain.linearRampToValueAtTime(8, now + 0.2); // Vocal boost
+    } 
+    else {
+        // --- BALANCED PUNCH (Default) ---
+        bassFilter.gain.linearRampToValueAtTime(8, now + 0.2);   
+        trebleFilter.gain.linearRampToValueAtTime(5, now + 0.2); 
+    }
+}
 
 // UI Elements
 const miniPlayer = document.getElementById('miniPlayer');
@@ -7176,11 +7232,10 @@ function formatTime(sec){ if (!sec || isNaN(sec)) return '0:00'; const m=Math.fl
 function createCoverText(name){ if(!name) return ''; const words=name.split(' ').filter(Boolean); if(words.length===1) return words[0].slice(0,2).toUpperCase(); return (words[0][0]+(words[1]?words[1][0]:'' )).toUpperCase(); }
 function hexToRgba(hex, alpha){ try { const h = hex.replace('#',''); const r = parseInt(h.substring(0,2),16); const g = parseInt(h.substring(2,4),16); const b = parseInt(h.substring(4,6),16); return `rgba(${r},${g},${b},${alpha})`; } catch(e){ return `rgba(0,0,0,${alpha})`; } }
 
-/* ===== CATEGORIES LOGIC (Strict Filtering with Exclusion) ===== */
+/* ===== CATEGORIES LOGIC ===== */
 
 const musicCategories = [
     { id: 'all', name: 'All Songs', color: '#1db954', keywords: [], exclude: [] },
-    
     { 
         id: 'hindi', 
         name: 'Top Hindi Songs', 
@@ -7188,7 +7243,6 @@ const musicCategories = [
         keywords: ['hindi', 'bollywood', 't-series', 'arijit', 'badshah', 'neha kakkar', 'jubin', 'sonu nigam', 'shreya', 'amit trivedi', 'mithoon', 'vishaal', 'shekhar', 'meet bros', 'armaan malik', 'atif aslam', 'palak muchhal', 'rahul mishra', 'udit narayan', 'alka yagnik', 'kumar sanu'], 
         exclude: ['telugu', 'tamil', 'punjabi', 'kannada', 'malayalam', 'haryanvi', 'bhojpuri', 'south', 'marathi', 'gujarati'] 
     },
-    
     { 
         id: 'telugu', 
         name: 'Top Telugu Songs', 
@@ -7196,7 +7250,6 @@ const musicCategories = [
         keywords: ['telugu', 'aditya music', 'dsp', 'devi sri prasad', 'thaman', 'sid sriram', 'allu arjun', 'prabhas', 'mahesh babu', 'nani', 'mangal', 'vijay deverakonda', 'ram charan', 'jr ntr', 'pawan kalyan', 'chiranjeevi', 'keerthy suresh', 'rashmika', 'samantha', 'anurag kulkarni', 'geetha govindam', 'pushpa', 'guntur kaaram', 'devara', 'kalki', 'aditya movies'], 
         exclude: ['hindi', 'tamil', 'kannada', 'malayalam'] 
     },
-    
     { 
         id: 'tamil', 
         name: 'Top Tamil Songs', 
@@ -7204,7 +7257,6 @@ const musicCategories = [
         keywords: ['tamil', 'anirudh', 'yuvan', 'ar rahman', 'chennai', 'hiphop tamizha', 'sid sriram', 'vijay', 'ajith', 'harris jayaraj', 'think music india', 'sony music south', 'santhosh narayanan', 'gv prakash', 'dhanush', 'kamal haasan', 'rajinikanth'], 
         exclude: ['telugu', 'hindi', 'kannada', 'malayalam'] 
     },
-    
     { 
         id: 'english', 
         name: 'Top English Songs', 
@@ -7212,7 +7264,6 @@ const musicCategories = [
         keywords: ['english', 'justin', 'alan walker', 'marshmello', 'ed sheeran', 'weeknd', 'pop', 'hollywood', 'billie', 'imagine dragons', 'bts', 'taylor swift', 'shawn mendes', 'camila', 'charlie puth', 'coldplay', 'drake', 'eminem', 'rihanna', 'sia'], 
         exclude: ['hindi', 'telugu', 'tamil', 'punjabi'] 
     },
-    
     { 
         id: 'punjabi', 
         name: 'Top Punjabi Songs', 
@@ -7220,7 +7271,6 @@ const musicCategories = [
         keywords: ['punjabi', 'sidhu moose wala', 'ap dhillon', 'gurinder gill', 'diljit', 'guru randhawa', 'harrdy sandhu', 'karan aujla', 'jass manak', 'shubh', 'amrit maan', 'mankirt', 'kaka', 'b praak', 'jaani', 'sunanda', 'jasmine sandlas', 'yo yo honey singh', 'parmish verma', 'jassie gill', 'intense'], 
         exclude: ['telugu', 'tamil', 'south', 'kannada', 'malayalam', 'aditya music'] 
     },
-    
     { 
         id: 'marathi', 
         name: 'Top Marathi Songs', 
@@ -7228,8 +7278,6 @@ const musicCategories = [
         keywords: ['marathi', 'ajay atul', 'shivaji', 'mumbai', 'pune', 'lavani', 'adarsh shinde', 'zee music marathi'], 
         exclude: [] 
     },
-
-    // NEW LANGUAGES (Will show "Coming Soon" if no match found)
     { 
         id: 'malayalam', 
         name: 'Top Malayalam Songs', 
@@ -7237,7 +7285,6 @@ const musicCategories = [
         keywords: ['malayalam', 'mollywood', 'ks chithra', 'yesudas', 'gopi sundar', 'shaan rahman', 'vineeth sreenivasan', 'sushin shyam', 'fatafati'], 
         exclude: [] 
     },
-
     { 
         id: 'kannada', 
         name: 'Top Kannada Songs', 
@@ -7245,7 +7292,6 @@ const musicCategories = [
         keywords: ['kannada', 'sandalwood', 'vijay prakash', 'arjun janya', 'sanjith hegde', 'chandan shetty', 'anand audio'], 
         exclude: [] 
     },
-
     { 
         id: 'bengali', 
         name: 'Top Bengali Songs', 
@@ -7253,7 +7299,6 @@ const musicCategories = [
         keywords: ['bengali', 'bangla', 'arijit singh', 'shreya ghoshal', 'jeet gannguli', 'anupam roy', 'svf music'], 
         exclude: [] 
     },
-
     { 
         id: 'haryanvi', 
         name: 'Top Haryanvi Songs', 
@@ -7261,7 +7306,6 @@ const musicCategories = [
         keywords: ['haryanvi', 'sapna choudhary', 'masoom sharma', 'renuka panwar', 'gulzaar chhaniwala', 'sumit goswami'], 
         exclude: [] 
     },
-
     { 
         id: 'bhojpuri', 
         name: 'Top Bhojpuri Songs', 
@@ -7269,7 +7313,6 @@ const musicCategories = [
         keywords: ['bhojpuri', 'pawan singh', 'khesari lal', 'nirahua', 'sharda sinha', 'manoj tiwari'], 
         exclude: [] 
     },
-
     { 
         id: 'gujarati', 
         name: 'Top Gujarati Songs', 
@@ -7277,7 +7320,6 @@ const musicCategories = [
         keywords: ['gujarati', 'garba', 'kinjal dave', 'geeta rabari', 'jignesh kaviraj', 'umesh barot'], 
         exclude: [] 
     },
-    
     { 
         id: 'devotional', 
         name: 'Devotional', 
@@ -7293,7 +7335,6 @@ const musicCategories = [
         ], 
         exclude: ['remix', 'dj', 'mashup', 'love', 'romantic', 'film', 'movie'] 
     },
-    
     { 
         id: 'dj', 
         name: 'DJ Remixes', 
@@ -7324,34 +7365,24 @@ function renderCategories() {
 
 function openCategory(category) {
     activeCategory = category.id;
-    
-    // UI Update: Hide grid, show list
     categoriesGrid.style.display = 'none';
     songListEl.style.display = 'flex';
     categoryNavHeader.style.display = 'flex';
     currentCategoryTitle.textContent = category.name;
     
-    // Filter Logic
     if (category.id === 'all') {
         renderSongs(songsDB);
     } else {
-        // Smart Filter with Exclusion
         const filtered = songsDB.filter(song => {
             const searchStr = (song.name + ' ' + song.artist).toLowerCase();
-            
-            // 1. Must match at least one keyword
             const matchesKeyword = category.keywords.some(k => searchStr.includes(k));
-            
-            // 2. Must NOT match any excluded words
             const isExcluded = category.exclude && category.exclude.some(ex => searchStr.includes(ex));
-            
             return matchesKeyword && !isExcluded;
         });
         
         if (filtered.length > 0) {
             renderSongs(filtered);
         } else {
-            // "COMING SOON" MESSAGE FOR EMPTY CATEGORIES
             songListEl.innerHTML = `
                 <div class="empty" style="text-align:center; padding:50px 20px; color:var(--muted);">
                     <h2 style="font-size:24px; color:var(--text); margin-bottom:10px;">Coming Soon...</h2>
@@ -7366,7 +7397,7 @@ function closeCategoryView() {
     songListEl.style.display = 'none';
     categoryNavHeader.style.display = 'none';
     categoriesGrid.style.display = 'grid';
-    searchInput.value = ''; // Clear search
+    searchInput.value = ''; 
 }
 
 if(btnBackToCategories) {
@@ -7377,20 +7408,17 @@ if(btnBackToCategories) {
 searchInput.addEventListener('input', (e)=>{ 
     const q = e.target.value.trim().toLowerCase(); 
     if(q.length > 0) {
-        // Force list view
         categoriesGrid.style.display = 'none';
         songListEl.style.display = 'flex';
         categoryNavHeader.style.display = 'none'; 
-        
         filteredSongs = songsDB.filter(s => ((s.name||'')+' '+(s.artist||'')).toLowerCase().includes(q)); 
         renderSongs(filteredSongs); 
     } else {
-        // If search is cleared, return to Category View
         closeCategoryView();
     }
 });
 
-/* ===== Now playing & UI updates (UPDATED WITH ANIMATED GRAPH) ===== */
+/* ===== Now playing & UI updates ===== */
 function updateNowPlaying(song){
   if(!song) return;
   miniTitle.textContent = song.name;
@@ -7401,7 +7429,12 @@ function updateNowPlaying(song){
   miniPlayer.setAttribute('aria-hidden','false');
   updateUIPlayingState();
   setupMarqueeIfNeeded();
-  loadLyrics(song.artist, song.name);
+  
+  // RESET LYRICS WHEN NEW SONG STARTS
+  lyricsContent.textContent = 'Loading lyrics...';
+  if(fsModal.style.display === 'flex') {
+      updateLyricsOnPlay(song);
+  }
 }
 
 function updateUIPlayingState(){
@@ -7423,10 +7456,7 @@ function updateUIPlayingState(){
   }
 
   // ANIMATED GRAPH LOGIC
-  // 1. Remove active state from all
   document.querySelectorAll('.song.active-track').forEach(el => el.classList.remove('active-track'));
-  
-  // 2. Add active state to current song
   if(currentSongId){
       const activeRow = document.querySelector(`.song[data-id="${currentSongId}"]`);
       if(activeRow) activeRow.classList.add('active-track');
@@ -7451,14 +7481,14 @@ function togglePlaySong(songId){
         audio.currentTime = 0;
         audio.load();
         
-        // Ensure context is running and apply smooth transition
         if(audioCtx.state === 'suspended') audioCtx.resume();
         
         audio.play().catch(e=>console.error('playback failed', e));
+        
+        // APPLY SMART EQ SETTINGS HERE
+        applySmartEQ(song);
+        
         updateNowPlaying(song);
-        if(fsModal.style.display === 'flex'){
-            updateLyricsOnPlay(song);
-        }
     }
     updateUIPlayingState();
     populateFullScreen(song);
@@ -7476,13 +7506,11 @@ function playNextSong(){
     else { do { nextId = pool[Math.floor(Math.random()*pool.length)]; } while(nextId===currentSongId && pool.length>1); }
     togglePlaySong(nextId); return;
   }
-  // Sequential Play
   if(currentPlaylistName){
     const list = playlists[currentPlaylistName] || []; const idx = list.indexOf(currentSongId);
     if(idx>=0 && idx<list.length-1) togglePlaySong(list[idx+1]);
     else { if(repeatMode==='all') togglePlaySong(list[0]); else { audio.pause(); currentSongId=null; updateUIPlayingState(); } } return;
   }
-  // Default All Songs
   const ids = songsDB.map(s=>s.id); const idx = ids.indexOf(currentSongId);
   if(idx>=0 && idx<ids.length-1) togglePlaySong(ids[idx+1]); else { if(repeatMode==='all') togglePlaySong(ids[0]); else { audio.pause(); currentSongId=null; updateUIPlayingState(); } }
 }
@@ -7519,7 +7547,6 @@ function renderSongs(list){
     
     const name = document.createElement('div');
     name.className = 'name';
-    // --- ANIMATED GRAPH INJECTION ---
     name.innerHTML = `${song.name} 
         <div class="song-graph-inline">
             <span></span><span></span><span></span>
@@ -7546,8 +7573,6 @@ function renderSongs(list){
     playBtn.addEventListener('click', e => { e.stopPropagation(); togglePlaySong(song.id); });
     controls.appendChild(menuBtn);
     controls.appendChild(playBtn);
-    
-    // (Optional) Right side visualizer removed to avoid duplicate since we have inline
     
     s.appendChild(cover); s.appendChild(meta); s.appendChild(controls);
     s.addEventListener('click', () => togglePlaySong(song.id));
@@ -7581,11 +7606,23 @@ function populateFullScreen(song){
   fsArtist.textContent = song.artist;
   const desc = document.getElementById('fsDescription');
   if(desc) desc.textContent = `Now playing — ${song.name} • ${song.artist}`;
-  if(song.lyrics && song.lyrics.trim().length>0) lyricsContent.textContent = song.lyrics;
-  else lyricsContent.textContent = 'No lyrics available for this song.';
-  document.getElementById('fsBackdrop').style.background = `linear-gradient(180deg, ${hexToRgba(song.color||'#000',0.18)}, rgba(0,0,0,0.65))`;
+  
+  // TRIGGER LYRICS UPDATE IF VISIBLE
+  if(fsModal.style.display === 'flex') {
+      updateLyricsOnPlay(song);
+  }
+  
+  document.getElementById('fsBackdrop').style.background = `linear-gradient(180deg, ${hexToRgba(song.color||'#000',0.18)}, rgba(0,0,0,0.65))`;
 }
-function openFullScreen(){ if(!currentSongId) return; const song = songsDB.find(s=>s.id===currentSongId); populateFullScreen(song); fsModal.style.display = 'flex'; fsModal.setAttribute('aria-hidden','false'); switchFsTab('player'); updateLyricsOnPlay(song); }
+function openFullScreen(){ 
+    if(!currentSongId) return; 
+    const song = songsDB.find(s=>s.id===currentSongId); 
+    populateFullScreen(song); 
+    fsModal.style.display = 'flex'; 
+    fsModal.setAttribute('aria-hidden','false'); 
+    switchFsTab('player'); 
+    updateLyricsOnPlay(song); // Force update on open
+}
 fsClose.addEventListener('click', closeFullScreen);
 function closeFullScreen(){ fsModal.style.display='none'; fsModal.setAttribute('aria-hidden','true'); }
 if(fsPlay) fsPlay.addEventListener('click', ()=>{ if(!audio.src) return; if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); });
@@ -7597,8 +7634,73 @@ if(fsProgressWrap) fsProgressWrap.addEventListener('click', (e)=>{ if(!audio.dur
 fsTabs.forEach(btn=>{ btn.addEventListener('click', ()=>{ fsTabs.forEach(b=>b.classList.remove('active')); btn.classList.add('active'); const tab = btn.dataset.tab; switchFsTab(tab); }); });
 function switchFsTab(tab){ fsPanels.forEach(p=>p.style.display='none'); const target = document.querySelector(`.fs-panel-${tab}`) || document.querySelector(`[data-panel="${tab}"]`); if(target) target.style.display='block'; }
 
-async function fetchLyrics(artist, title) { const url = `/api/lyrics.js?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`; try { const response = await fetch(url); if (!response.ok) return 'Lyrics not found.'; const data = await response.json(); return data.lyrics || 'Lyrics not found.'; } catch (err) { console.error('Error fetching lyrics:', err); return 'Lyrics not found.'; } }
-async function updateLyricsOnPlay(song){ if(!song) return; if(fsModal.style.display !== 'flex') return; lyricsContent.textContent = 'Loading lyrics...'; if(song.lyrics && song.lyrics !== 'No lyrics available for this song.' && song.lyrics !== 'Lyrics not found.'){ lyricsContent.textContent = song.lyrics; return; } const lyrics = await fetchLyrics(song.artist, song.name); song.lyrics = lyrics; lyricsContent.textContent = lyrics; }
+/* ===== SMART CLIENT-SIDE LYRICS FETCHING ===== */
+
+function cleanSearchString(str) {
+    if(!str) return "";
+    return str.replace(/\(.*\)|\[.*\]/g, "")
+              .replace(/Song|Lyrical|Official|Video|4K|Ft\.|Feat\.|Full Audio|From|Movie/gi, "")
+              .replace(/T-Series|Aditya Music|Sony Music|Zee Music/gi, "") 
+              .replace(/[:|-].*$/, "") 
+              .trim();
+}
+
+async function fetchLyrics(artist, title) {
+    const cleanTitle = cleanSearchString(title);
+    const cleanArtist = cleanSearchString(artist);
+    
+    // We search using LRCLIB
+    const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + " " + cleanArtist)}`;
+
+    try {
+        const response = await fetch(searchUrl);
+        if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data) && data.length > 0) {
+                const match = data.find(item => item.plainLyrics);
+                if (match) return match.plainLyrics;
+            }
+        }
+    } catch (e) {
+        console.log("LrcLib search failed", e);
+    }
+
+    // Fallback: Try lyrics.ovh with strict cleaning
+    try {
+        const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`;
+        const r2 = await fetch(url);
+        if (r2.ok) {
+            const d2 = await r2.json();
+            if (d2.lyrics) return d2.lyrics;
+        }
+    } catch(e) {}
+
+    return null;
+}
+
+async function updateLyricsOnPlay(song){ 
+    if(!song) return; 
+    
+    if(song.lyrics && song.lyrics !== 'Loading lyrics...') {
+        if(fsModal.style.display === 'flex') lyricsContent.innerHTML = song.lyrics.replace(/\n/g, '<br>');
+        return;
+    }
+
+    lyricsContent.textContent = 'Searching for lyrics...';
+
+    const lyrics = await fetchLyrics(song.artist, song.name);
+    
+    if(lyrics) {
+        song.lyrics = lyrics; 
+        if(fsModal.style.display === 'flex') {
+            lyricsContent.innerHTML = lyrics.replace(/\n/g, '<br>');
+        }
+    } else {
+        const msg = "Lyrics could not be found for this song.<br><br><small>We searched automatically but no match was found.</small>";
+        song.lyrics = msg; 
+        if(fsModal.style.display === 'flex') lyricsContent.innerHTML = msg;
+    }
+}
 
 /* Modals Logic */
 function openModal(backdropEl) { if(!backdropEl) return; backdropEl.style.display = 'flex'; backdropEl.setAttribute('aria-hidden', 'false'); backdropEl.focus(); }
@@ -7612,10 +7714,6 @@ function addSongToPlaylist(songId, playlistName) { if (!playlists[playlistName])
 function showAddPlaylistModal(songId) { if(!addPlaylistList) return; songIdToAdd = songId; addPlaylistList.innerHTML = ''; if (!playlists['My Favorites']) { playlists['My Favorites'] = []; savePlaylists(playlists); playlists = loadPlaylists(); } const names = Object.keys(playlists).sort((a,b) => { if (a === 'My Favorites') return -1; if (b === 'My Favorites') return 1; return a.localeCompare(b); }); names.forEach(name => { const item = document.createElement('div'); item.className = 'modal-playlist-item'; const songCount = playlists[name].length; const isInPlaylist = playlists[name].includes(songId); item.innerHTML = `<div><div class="name">${name}</div><div class="count">${songCount} songs</div></div><button class="btn-circle btn-save" data-name="${name}" ${isInPlaylist ? 'disabled' : ''}>${isInPlaylist ? 'Added' : 'Add'}</button>`; item.querySelector('.btn-save').addEventListener('click', (e) => { e.stopPropagation(); if (addSongToPlaylist(songId, name)) { e.target.disabled = true; e.target.textContent = 'Added'; const song = songsDB.find(s => s.id === songId); alert(`Added ${song ? song.name : 'song'} to "${name}"`); } }); addPlaylistList.appendChild(item); }); const createNew = document.createElement('div'); createNew.className = 'modal-playlist-item create-new'; createNew.innerHTML = `<div><div class="name">Create New Playlist</div></div><button class="btn-circle open-create-btn" title="Create a new playlist">+</button>`; createNew.querySelector('.open-create-btn').addEventListener('click', (e) => { e.stopPropagation(); closeModal(addPlaylistModalBackdrop); showCreatePlaylistModal(songId); }); addPlaylistList.appendChild(createNew); openModal(addPlaylistModalBackdrop); }
 function showCreatePlaylistModal(initialSongId = null) { if(!createPlaylistModalBackdrop) return; newPlaylistInput.value = ''; createPlaylistConfirmBtn.dataset.songid = initialSongId || ''; openModal(createPlaylistModalBackdrop); }
 if(createPlaylistConfirmBtn) { createPlaylistConfirmBtn.addEventListener('click', () => { const name = newPlaylistInput.value.trim(); if (!name) { alert('Playlist name cannot be empty.'); return; } if (playlists[name]) { alert('A playlist with that name already exists.'); return; } const songId = createPlaylistConfirmBtn.dataset.songid; const initialSongs = songId ? [songId] : []; if (createNewPlaylist(name, initialSongs)) { closeModal(createPlaylistModalBackdrop); if (songId) { const song = songsDB.find(s => s.id === songId); alert(`Playlist "${name}" created and added ${song ? song.name : 'song'}!`); } else { alert(`Playlist "${name}" created!`); } } }); }
-
-// ==========================================
-// FIXED PLAYLIST GRID vs LIST LOGIC
-// ==========================================
 
 function renderLibraryIndex(){ 
     currentPlaylistName=null; 
@@ -7755,5 +7853,3 @@ function setupMarqueeIfNeeded(){
   marquee.style.animation = 'none'; marquee.dataset.scroll = 'false'; marquee.dataset.duplicated = ''; marquee.textContent = miniTitle.textContent;
   requestAnimationFrame(()=>{ const wrapW = wrap.clientWidth; const txtW = marquee.scrollWidth; if(txtW > wrapW + 8){ marquee.textContent = miniTitle.textContent + '   •   ' + miniTitle.textContent; marquee.dataset.duplicated = 'true'; const speed = 70; const duration = Math.max(8, (txtW / speed) * 2); marquee.style.animation = `marquee ${duration}s linear infinite`; } else { marquee.dataset.duplicated = ''; marquee.dataset.scroll='false'; marquee.textContent = miniTitle.textContent; } });
 }
-
-async function loadLyrics(artist, title) { const lyricsBox = document.getElementById("lyricsContent"); if (!lyricsBox) return; lyricsBox.innerText = "Loading lyrics..."; try { const resp = await fetch(`/api/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`); const data = await resp.json(); if (data.lyrics && data.lyrics.length > 10) { lyricsBox.innerText = data.lyrics; } else { lyricsBox.innerText = "Lyrics not found."; } } catch (err) { console.error("Lyrics error:", err); lyricsBox.innerText = "Failed to load lyrics."; } }
