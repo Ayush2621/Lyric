@@ -7037,6 +7037,10 @@ const songsDB = [
 
 
 
+/* ==========================================================================
+   PASTE THIS CODE BELOW YOUR "songsDB" ARRAY (After the closing "];")
+   ========================================================================== */
+
 /* ===== Storage helpers & Local Storage Persistence ===== */
 const STORAGE_PLAYLISTS_KEY = 'ministream_playlists_v1'; 
 
@@ -7082,39 +7086,40 @@ const btnBackToCategories = document.getElementById('btnBackToCategories');
 const currentCategoryTitle = document.getElementById('currentCategoryTitle');
 
 /* =================================================================
-   💎 CRYSTAL CLEAR AUDIO ENGINE (Balanced High-Fidelity)
+   🎵 NATURAL Hi-Fi AUDIO ENGINE (No Distortion, Vocal Focus)
    =================================================================
 */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const sourceNode = audioCtx.createMediaElementSource(audio);
 
-// 1. Bass Filter (Warmth, not Noise)
-// Set to 100Hz. This boosts the "body" of the song without muddying the vocals.
+// 1. Bass Filter (Very Gentle Warmth)
+// Just a tiny 2dB lift to keep it sounding full, but not overpowering
 const bassFilter = audioCtx.createBiquadFilter();
 bassFilter.type = 'lowshelf';
-bassFilter.frequency.setValueAtTime(100, audioCtx.currentTime); 
-bassFilter.gain.setValueAtTime(4, audioCtx.currentTime); // +4dB (Nice & Warm)
+bassFilter.frequency.setValueAtTime(120, audioCtx.currentTime); 
+bassFilter.gain.setValueAtTime(2, audioCtx.currentTime); 
 
-// 2. Treble Filter (Vocal Clarity & Air)
-// Set to 4000Hz. This makes lyrics crisp and clear.
+// 2. Treble Filter (Vocal Presence)
+// Helps the singer's voice stand out above the background music
 const trebleFilter = audioCtx.createBiquadFilter();
 trebleFilter.type = 'highshelf';
-trebleFilter.frequency.setValueAtTime(4000, audioCtx.currentTime);
-trebleFilter.gain.setValueAtTime(5, audioCtx.currentTime); // +5dB (Crystal Clear)
+trebleFilter.frequency.setValueAtTime(3000, audioCtx.currentTime);
+trebleFilter.gain.setValueAtTime(2, audioCtx.currentTime); 
 
-// 3. Dynamics Compressor (Soft Limiter)
-// Gentle settings to keep dynamics intact while preventing distortion
+// 3. Dynamics Compressor (Transparent Limiter)
+// RATIO REDUCED to 3:1 (Was 12:1). This allows the music to "breathe".
+// It stops the background music from getting pumped up too loud.
 const compressor = audioCtx.createDynamicsCompressor();
-compressor.threshold.setValueAtTime(-12, audioCtx.currentTime);
-compressor.knee.setValueAtTime(30, audioCtx.currentTime);
-compressor.ratio.setValueAtTime(8, audioCtx.currentTime); // Softer ratio (8:1)
-compressor.attack.setValueAtTime(0.02, audioCtx.currentTime);
+compressor.threshold.setValueAtTime(-10, audioCtx.currentTime);
+compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+compressor.ratio.setValueAtTime(3, audioCtx.currentTime); // Low ratio = Natural sound
+compressor.attack.setValueAtTime(0.05, audioCtx.currentTime);
 compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
 
-// 4. Pre-Amp (Safe Volume Boost)
-// Boosts volume by 60% (1.6x). This is the "Safe Zone" for clarity.
+// 4. Pre-Amp (Minimal Boost)
+// Reduced to 1.1x (10% boost). Just enough to ensure it's not too quiet.
 const preAmpNode = audioCtx.createGain();
-preAmpNode.gain.setValueAtTime(1.6, audioCtx.currentTime); 
+preAmpNode.gain.setValueAtTime(1.1, audioCtx.currentTime); 
 
 // 5. Master Gain
 const gainNode = audioCtx.createGain();
@@ -7128,34 +7133,32 @@ preAmpNode.connect(compressor);
 compressor.connect(gainNode);
 gainNode.connect(audioCtx.destination);
 
-/* 🎶 SMART EQ: Gentle adjustments based on Genre */
+/* 🎶 SMART EQ: Very subtle adjustments */
 function applySmartEQ(song) {
     if(!song) return;
     const text = (song.name + " " + song.artist).toLowerCase();
     const now = audioCtx.currentTime;
 
-    const isDJ = text.includes('dj') || text.includes('remix') || text.includes('mix') || text.includes('bass') || text.includes('trap');
-    const isMelody = text.includes('sid sriram') || text.includes('arijit') || text.includes('shreya') || text.includes('love') || text.includes('reprise');
-    const isDevotional = text.includes('bhakti') || text.includes('aarti') || text.includes('hanuman') || text.includes('shiv');
+    const isDJ = text.includes('dj') || text.includes('remix') || text.includes('mix') || text.includes('bass');
+    const isMelody = text.includes('sid sriram') || text.includes('arijit') || text.includes('shreya') || text.includes('love');
 
-    // Smooth Transition
     bassFilter.gain.cancelScheduledValues(now);
     trebleFilter.gain.cancelScheduledValues(now);
 
     if (isDJ) {
-        // DJ: Punchy but clean
-        bassFilter.gain.linearRampToValueAtTime(6, now + 0.2);   
-        trebleFilter.gain.linearRampToValueAtTime(4, now + 0.2); 
+        // DJ: Slight bass bump (+4dB), standard treble
+        bassFilter.gain.linearRampToValueAtTime(4, now + 0.5);   
+        trebleFilter.gain.linearRampToValueAtTime(2, now + 0.5); 
     } 
-    else if (isMelody || isDevotional) {
-        // Melody: Focus on voice
-        bassFilter.gain.linearRampToValueAtTime(3, now + 0.2);   
-        trebleFilter.gain.linearRampToValueAtTime(6, now + 0.2); 
+    else if (isMelody) {
+        // Vocal: Neutral bass (+1dB), clear voice (+3dB)
+        bassFilter.gain.linearRampToValueAtTime(1, now + 0.5);   
+        trebleFilter.gain.linearRampToValueAtTime(3, now + 0.5); 
     } 
     else {
-        // Default: Balanced "V-Shape"
-        bassFilter.gain.linearRampToValueAtTime(4, now + 0.2);   
-        trebleFilter.gain.linearRampToValueAtTime(5, now + 0.2); 
+        // Default: Gentle V-Shape (+2dB each)
+        bassFilter.gain.linearRampToValueAtTime(2, now + 0.5);   
+        trebleFilter.gain.linearRampToValueAtTime(2, now + 0.5); 
     }
 }
 
