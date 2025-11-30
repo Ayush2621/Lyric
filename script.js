@@ -7098,37 +7098,38 @@ const btnBackToCategories = document.getElementById('btnBackToCategories');
 const currentCategoryTitle = document.getElementById('currentCategoryTitle');
 
 /* =================================================================
-   🚀 MAX VOLUME AUDIO ENGINE (High Gain + Deep Bass)
+   🔊 PURE VOLUME BOOST ENGINE (No EQ Coloration)
    =================================================================
 */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const sourceNode = audioCtx.createMediaElementSource(audio);
 
-// 1. Bass Filter (Deep Sub-Bass)
-// Frequency moved to 60Hz for that "Thump" feeling
+// 1. Bass Filter (NEUTRAL - No Boost)
+// We keep the filter but set gain to 0 so sound is original
 const bassFilter = audioCtx.createBiquadFilter();
 bassFilter.type = 'lowshelf';
-bassFilter.frequency.setValueAtTime(60, audioCtx.currentTime); 
+bassFilter.frequency.setValueAtTime(200, audioCtx.currentTime); 
+bassFilter.gain.setValueAtTime(0, audioCtx.currentTime); // 0dB (Original Sound)
 
-// 2. Treble Filter (Vocal Clarity)
-// High shelf to keep lyrics crisp even when bass is high
+// 2. Treble Filter (NEUTRAL - No Boost)
 const trebleFilter = audioCtx.createBiquadFilter();
 trebleFilter.type = 'highshelf';
 trebleFilter.frequency.setValueAtTime(3000, audioCtx.currentTime);
+trebleFilter.gain.setValueAtTime(0, audioCtx.currentTime); // 0dB (Original Sound)
 
-// 3. Dynamics Compressor (The Limiter)
-// Tweaked to allow MORE volume before cutting off (Higher threshold)
+// 3. Dynamics Compressor (Safety)
+// Prevents the volume boost from cracking/distorting speakers
 const compressor = audioCtx.createDynamicsCompressor();
-compressor.threshold.setValueAtTime(-10, audioCtx.currentTime); // Was -24, raised to -10 for louder peaks
-compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+compressor.threshold.setValueAtTime(-8, audioCtx.currentTime);
+compressor.knee.setValueAtTime(30, audioCtx.currentTime);
 compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
-compressor.attack.setValueAtTime(0, audioCtx.currentTime);
+compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
 compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
 
-// 4. Pre-Amp (Volume Booster)
-// Boosts signal by 300% (3.0x) - significantly louder
+// 4. Pre-Amp (VOLUME BOOSTER ONLY)
+// Increases volume by 250% (2.5x) - Louder but safe
 const preAmpNode = audioCtx.createGain();
-preAmpNode.gain.setValueAtTime(3.0, audioCtx.currentTime); 
+preAmpNode.gain.setValueAtTime(2.5, audioCtx.currentTime); 
 
 // 5. Master Gain
 const gainNode = audioCtx.createGain();
@@ -7137,43 +7138,10 @@ gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
 // --- CONNECT THE AUDIO CHAIN ---
 sourceNode.connect(bassFilter);
 bassFilter.connect(trebleFilter);
-trebleFilter.connect(preAmpNode); // Boost volume FIRST
-preAmpNode.connect(compressor);   // Then compress to prevent cracking
+trebleFilter.connect(preAmpNode); // Boost volume
+preAmpNode.connect(compressor);   // Prevent Clipping
 compressor.connect(gainNode);
 gainNode.connect(audioCtx.destination);
-
-/* 🎶 SMART EQ: Automatically adjusts audio based on Song Name/Artist
-*/
-function applySmartEQ(song) {
-    if(!song) return;
-    const text = (song.name + " " + song.artist).toLowerCase();
-    const now = audioCtx.currentTime;
-
-    const isDJ = text.includes('dj') || text.includes('remix') || text.includes('mix') || text.includes('bass') || text.includes('trap') || text.includes('club');
-    const isMelody = text.includes('sid sriram') || text.includes('arijit') || text.includes('shreya') || text.includes('love') || text.includes('reprise');
-    const isDevotional = text.includes('bhakti') || text.includes('aarti') || text.includes('hanuman') || text.includes('shiv');
-
-    // Reset Gains smoothly
-    bassFilter.gain.cancelScheduledValues(now);
-    trebleFilter.gain.cancelScheduledValues(now);
-
-    if (isDJ) {
-        // --- DJ MODE (Max Bass) ---
-        // Bass boosted to +12dB (Very high)
-        bassFilter.gain.linearRampToValueAtTime(12, now + 0.2);   
-        trebleFilter.gain.linearRampToValueAtTime(4, now + 0.2); 
-    } 
-    else if (isMelody || isDevotional) {
-        // --- VOCAL MODE (Clear & Loud) ---
-        bassFilter.gain.linearRampToValueAtTime(5, now + 0.2);   
-        trebleFilter.gain.linearRampToValueAtTime(8, now + 0.2); // Vocal boost
-    } 
-    else {
-        // --- BALANCED PUNCH (Default) ---
-        bassFilter.gain.linearRampToValueAtTime(8, now + 0.2);   
-        trebleFilter.gain.linearRampToValueAtTime(5, now + 0.2); 
-    }
-}
 
 // UI Elements
 const miniPlayer = document.getElementById('miniPlayer');
@@ -7484,9 +7452,6 @@ function togglePlaySong(songId){
         if(audioCtx.state === 'suspended') audioCtx.resume();
         
         audio.play().catch(e=>console.error('playback failed', e));
-        
-        // APPLY SMART EQ SETTINGS HERE
-        applySmartEQ(song);
         
         updateNowPlaying(song);
     }
