@@ -1,28 +1,31 @@
 /* ==========================================================================
-   CONFIG & STATE
+   1. CONFIGURATION & STATE
    ========================================================================== */
 const YOUTUBE_API_KEY = "AIzaSyApMe9q_hGlgXF2V_d9tSvd0VWA4LDH6qU"; 
-const PLAYLIST_STORAGE_KEY = 'lyric_playlists_v4';
+const PLAYLIST_STORAGE_KEY = 'lyric_playlists_v5';
 
-let player; // YouTube Player Instance
+let player; 
 let currentVideoId = null;
-let currentSongTitle = "";
-let currentSongArtist = "";
+let currentSongTitle = "Not Playing";
+let currentSongArtist = "Select a song";
 let currentSongCover = "";
 let searchTimeout;
 let progressInterval;
-let playlists = loadPlaylists();
+let playlists = loadPlaylists(); // Loads from phone storage
 let currentSearchItems = [];
 let shuffleEnabled = false;
 let repeatMode = 'off';
 
+// ✅ BACKGROUND PLAY VARIABLES
+let shouldBePlaying = false; 
+let keepAliveContext = null;
+let keepAliveOscillator = null;
+
 /* ==========================================================================
-   DOM ELEMENTS
+   2. DOM ELEMENTS
    ========================================================================== */
 const searchInput = document.getElementById('searchInput');
 const songListEl = document.getElementById('songList');
-
-// Categories
 const categoriesGrid = document.getElementById('categoriesGrid');
 const categoryNavHeader = document.getElementById('categoryNavHeader');
 const btnBackToCategories = document.getElementById('btnBackToCategories');
@@ -62,7 +65,7 @@ const fsDuration = document.getElementById('fsDuration');
 const fsDescription = document.getElementById('fsDescription');
 const lyricsContent = document.getElementById('lyricsContent');
 
-// Views & Modals
+// Views
 const navHome = document.getElementById('navHome');
 const navLibrary = document.getElementById('navLibrary');
 const navProfile = document.getElementById('navProfile');
@@ -84,7 +87,34 @@ const createPlaylistConfirmBtn = document.getElementById('createPlaylistConfirmB
 const closeModalBtns = document.querySelectorAll('.modal-close-btn');
 
 /* ==========================================================================
-   YOUTUBE API SETUP
+   3. BACKGROUND AUDIO HACK (The Fix)
+   ========================================================================== */
+function initKeepAlive() {
+    if (keepAliveContext) return; 
+
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        keepAliveContext = new AudioContext();
+
+        // Play silent sound to trick Android
+        keepAliveOscillator = keepAliveContext.createOscillator();
+        const gainNode = keepAliveContext.createGain();
+        gainNode.gain.value = 0.0001; // Almost silent
+        
+        keepAliveOscillator.connect(gainNode);
+        gainNode.connect(keepAliveContext.destination);
+        keepAliveOscillator.start();
+        
+        if (keepAliveContext.state === 'suspended') {
+            keepAliveContext.resume();
+        }
+    } catch (e) {
+        console.error("Audio Hack Error:", e);
+    }
+}
+
+/* ==========================================================================
+   4. YOUTUBE API SETUP
    ========================================================================== */
 var tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
@@ -97,7 +127,7 @@ function onYouTubeIframeAPIReady() {
         width: '100%',
         playerVars: {
             'playsinline': 1,
-            'controls': 0, 
+            'controls': 0,
             'modestbranding': 1,
             'rel': 0,
             'showinfo': 0,
@@ -105,7 +135,8 @@ function onYouTubeIframeAPIReady() {
             'origin': window.location.origin
         },
         events: {
-            'onStateChange': onPlayerStateChange
+            'onStateChange': onPlayerStateChange,
+            'onError': (e) => console.log("Player Error", e)
         }
     });
 }
@@ -115,9 +146,22 @@ function onPlayerStateChange(event) {
         updatePlayButtons(true);
         startProgressLoop();
         updateMediaSession(currentSongTitle, currentSongArtist, currentSongCover);
+        
+        // Wake up audio engine
+        initKeepAlive();
+        if (keepAliveContext && keepAliveContext.state === 'suspended') {
+            keepAliveContext.resume();
+        }
+
     } else if (event.data == YT.PlayerState.PAUSED) {
-        updatePlayButtons(false);
-        stopProgressLoop();
+        // AUTO RESUME: If we didn't pause it manually, play it again!
+        if (shouldBePlaying) {
+            player.playVideo(); 
+        } else {
+            updatePlayButtons(false);
+            stopProgressLoop();
+        }
+
     } else if (event.data == YT.PlayerState.ENDED) {
         stopProgressLoop();
         if (repeatMode === 'one') {
@@ -131,12 +175,17 @@ function onPlayerStateChange(event) {
 
 function updatePlayButtons(isPlaying) {
     const icon = isPlaying ? '⏸' : '▶';
-    if(miniPlayIcon) miniPlayIcon.innerHTML = isPlaying ? '<rect x="6" y="5" width="4" height="14" fill="white"/><rect x="14" y="5" width="4" height="14" fill="white"/>' : '<path d="M5 3v18l15-9L5 3z" fill="white"/>';
+    // Update SVG in Mini Player
+    if(miniPlayIcon) miniPlayIcon.innerHTML = isPlaying 
+        ? '<rect x="6" y="5" width="4" height="14" fill="white"/><rect x="14" y="5" width="4" height="14" fill="white"/>' 
+        : '<path d="M5 3v18l15-9L5 3z" fill="white"/>';
+    
+    // Update Text in Fullscreen
     if(fsPlay) fsPlay.textContent = icon;
 }
 
 /* ==========================================================================
-   PROGRESS LOOP
+   5. PROGRESS BAR & TIMER
    ========================================================================== */
 function startProgressLoop() {
     stopProgressLoop();
@@ -173,20 +222,18 @@ function formatTime(sec) {
 }
 
 /* ==========================================================================
-   MEDIA SESSION (LOCK SCREEN)
+   6. LOCK SCREEN CONTROLS
    ========================================================================== */
 function updateMediaSession(title, artist, cover) {
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: title,
             artist: artist,
-            artwork: [
-                { src: cover, sizes: '512x512', type: 'image/jpeg' }
-            ]
+            artwork: [ { src: cover, sizes: '512x512', type: 'image/jpeg' } ]
         });
 
-        navigator.mediaSession.setActionHandler('play', () => player.playVideo());
-        navigator.mediaSession.setActionHandler('pause', () => player.pauseVideo());
+        navigator.mediaSession.setActionHandler('play', () => { shouldBePlaying = true; player.playVideo(); });
+        navigator.mediaSession.setActionHandler('pause', () => { shouldBePlaying = false; player.pauseVideo(); });
         navigator.mediaSession.setActionHandler('previoustrack', () => playPrevSong());
         navigator.mediaSession.setActionHandler('nexttrack', () => playNextSong());
         navigator.mediaSession.setActionHandler('seekto', (details) => player.seekTo(details.seekTime));
@@ -194,7 +241,7 @@ function updateMediaSession(title, artist, cover) {
 }
 
 /* ==========================================================================
-   SEARCH & DATA
+   7. SEARCH & CATEGORIES
    ========================================================================== */
 const musicCategories = [
     { id: 'trending', name: 'Trending Now', color: '#E91E63', query: 'Trending Music' },
@@ -284,18 +331,20 @@ function renderSongs(items) {
 }
 
 /* ==========================================================================
-   PLAYER CONTROL
+   8. PLAYER CONTROL (Play, Pause, Next, Prev)
    ========================================================================== */
 function playVideo(id, title, artist, cover) {
     currentVideoId = id;
     currentSongTitle = title;
     currentSongArtist = artist;
     currentSongCover = cover;
+    shouldBePlaying = true; // Mark as playing
 
     if (player && player.loadVideoById) {
         player.loadVideoById(id);
     }
 
+    // UI Updates
     miniTitle.textContent = title;
     miniArtist.textContent = artist;
     miniCover.style.backgroundImage = `url('${cover}')`;
@@ -303,13 +352,15 @@ function playVideo(id, title, artist, cover) {
     fsTitle.textContent = title;
     fsArtist.textContent = artist;
     if(fsDescription) fsDescription.textContent = "Playing via YouTube";
-    
     if(lyricsContent) lyricsContent.textContent = "Lyrics feature coming soon...";
 
     miniPlayer.style.display = 'flex';
-    openFullScreen(); 
+    openFullScreen(); // Auto-open FS player
     
     updateMediaSession(title, artist, cover);
+    
+    // Start Audio Hack
+    initKeepAlive();
 }
 
 function playNextSong() {
@@ -334,8 +385,16 @@ function playPrevSong() {
 
 window.togglePlay = () => {
     if(!player) return;
-    if(player.getPlayerState() === YT.PlayerState.PLAYING) player.pauseVideo();
-    else player.playVideo();
+    if(player.getPlayerState() === YT.PlayerState.PLAYING) {
+        shouldBePlaying = false; // Intentionally paused
+        player.pauseVideo();
+    } else {
+        shouldBePlaying = true; // Intentionally playing
+        player.playVideo();
+        if (keepAliveContext && keepAliveContext.state === 'suspended') {
+            keepAliveContext.resume();
+        }
+    }
 }
 
 if(miniPlayToggle) miniPlayToggle.addEventListener('click', (e) => { e.stopPropagation(); togglePlay(); });
@@ -343,12 +402,9 @@ if(fsPlay) fsPlay.addEventListener('click', togglePlay);
 if(fsNext) fsNext.addEventListener('click', playNextSong);
 if(fsPrev) fsPrev.addEventListener('click', playPrevSong);
 
-function openFullScreen() {
-    fsModal.style.display = 'flex';
-}
-function closeFullScreen() {
-    fsModal.style.display = 'none';
-}
+// Fullscreen Logic
+function openFullScreen() { fsModal.style.display = 'flex'; }
+function closeFullScreen() { fsModal.style.display = 'none'; }
 
 miniPlayer.addEventListener('click', (e) => {
     if(e.target.closest('button')) return;
@@ -357,6 +413,7 @@ miniPlayer.addEventListener('click', (e) => {
 if(fsClose) fsClose.addEventListener('click', closeFullScreen);
 if(btnExpand) btnExpand.addEventListener('click', (e) => { e.stopPropagation(); openFullScreen(); });
 
+// Seek Logic
 function seek(e, el) {
     if(!player) return;
     const rect = el.getBoundingClientRect();
@@ -367,7 +424,7 @@ if(progressContainer) progressContainer.addEventListener('click', (e) => seek(e,
 if(fsProgressWrap) fsProgressWrap.addEventListener('click', (e) => seek(e, fsProgressWrap));
 
 /* ==========================================================================
-   PLAYLISTS
+   9. PLAYLIST SYSTEM (Local Storage)
    ========================================================================== */
 function loadPlaylists() {
     const raw = localStorage.getItem(PLAYLIST_STORAGE_KEY);
@@ -379,14 +436,13 @@ function savePlaylists() {
 
 let songToAdd = null;
 
+// Show Add Modal
 window.showAddPlaylistModal = (id, title, artist, cover) => {
     songToAdd = { id, title, artist, cover };
-    
     if(!addPlaylistList) return;
     addPlaylistList.innerHTML = '';
     
     const names = Object.keys(playlists).sort();
-    
     names.forEach(name => {
         const item = document.createElement('div');
         item.className = 'modal-playlist-item';
@@ -398,29 +454,29 @@ window.showAddPlaylistModal = (id, title, artist, cover) => {
         const count = playlists[name].length;
         item.innerHTML = `<span>${name} (${count} songs)</span> <button class="btn-circle small" style="width:30px;height:30px;">+</button>`;
         
-        item.querySelector('button').addEventListener('click', (e) => {
-            e.stopPropagation();
-            addToPlaylist(name, songToAdd);
+        item.querySelector('button').addEventListener('click', (e) => { 
+            e.stopPropagation(); 
+            addToPlaylist(name, songToAdd); 
         });
         
         addPlaylistList.appendChild(item);
     });
     
+    // Create New Button
     const createNew = document.createElement('div');
     createNew.style.padding = "15px 10px";
     createNew.style.textAlign = "center";
     createNew.innerHTML = `<button class="btn-primary" style="width:100%">Create New Playlist</button>`;
-    createNew.querySelector('button').addEventListener('click', () => {
-        openModal(createPlaylistModalBackdrop);
-    });
+    createNew.querySelector('button').addEventListener('click', () => { openModal(createPlaylistModalBackdrop); });
     addPlaylistList.appendChild(createNew);
-
+    
     openModal(addPlaylistModalBackdrop);
 }
 
 function addToPlaylist(playlistName, song) {
     if(!playlists[playlistName]) playlists[playlistName] = [];
     
+    // Avoid duplicates
     const exists = playlists[playlistName].find(s => s.id === song.id);
     if(!exists) {
         playlists[playlistName].push(song);
@@ -433,10 +489,7 @@ function addToPlaylist(playlistName, song) {
 }
 
 function createNewPlaylist(name) {
-    if(playlists[name]) {
-        alert("Playlist exists");
-        return;
-    }
+    if(playlists[name]) { alert("Playlist exists"); return; }
     playlists[name] = [];
     if(songToAdd) playlists[name].push(songToAdd);
     savePlaylists();
@@ -457,19 +510,12 @@ function renderLibrary() {
     libraryList.innerHTML = '';
     const names = Object.keys(playlists);
     
-    if(names.length === 0) {
-        libraryList.innerHTML = '<div class="empty">No playlists.</div>';
-        return;
-    }
+    if(names.length === 0) { libraryList.innerHTML = '<div class="empty">No playlists.</div>'; return; }
     
     names.forEach(name => {
         const div = document.createElement('div');
         div.className = 'playlist-card';
-        div.innerHTML = `
-            <div class="thumb">${name.substring(0,2).toUpperCase()}</div>
-            <div class="playlist-name">${name}</div>
-            <div style="font-size:12px; color:#888">${playlists[name].length} songs</div>
-        `;
+        div.innerHTML = `<div class="thumb">${name.substring(0,2).toUpperCase()}</div><div class="playlist-name">${name}</div><div style="font-size:12px; color:#888">${playlists[name].length} songs</div>`;
         div.addEventListener('click', () => openPlaylistDetail(name));
         libraryList.appendChild(div);
     });
@@ -485,22 +531,12 @@ function openPlaylistDetail(name) {
     document.getElementById('backToLib').addEventListener('click', renderLibrary);
     
     const songs = playlists[name];
-    if(songs.length === 0) {
-        libraryList.innerHTML += '<div class="empty">Empty playlist.</div>';
-        return;
-    }
+    if(songs.length === 0) { libraryList.innerHTML += '<div class="empty">Empty playlist.</div>'; return; }
     
     songs.forEach(item => {
         const div = document.createElement('div');
         div.className = 'song';
-        div.innerHTML = `
-            <div class="cover" style="background-image: url('${item.cover}')"></div>
-            <div class="meta">
-                <div class="name">${item.title}</div>
-                <div class="artist">${item.artist}</div>
-            </div>
-            <button class="btn-circle small" onclick="event.stopPropagation(); removeFromPlaylist('${name}', '${item.id}')">🗑</button>
-        `;
+        div.innerHTML = `<div class="cover" style="background-image: url('${item.cover}')"></div><div class="meta"><div class="name">${item.title}</div><div class="artist">${item.artist}</div></div><button class="btn-circle small" onclick="event.stopPropagation(); removeFromPlaylist('${name}', '${item.id}')">🗑</button>`;
         div.onclick = () => playVideo(item.id, item.title, item.artist, item.cover);
         libraryList.appendChild(div);
     });
@@ -513,43 +549,34 @@ window.removeFromPlaylist = (name, id) => {
 }
 
 /* ==========================================================================
-   NAV & MODAL LOGIC (Backdrop Click Fix)
+   10. NAVIGATION & MODALS
    ========================================================================== */
 function setActiveView(view) {
-    homeView.style.display = 'none';
-    libraryView.style.display = 'none';
-    navHome.classList.remove('active');
-    navLibrary.classList.remove('active');
-    navProfile.classList.remove('active');
+    homeView.style.display = 'none'; libraryView.style.display = 'none'; navHome.classList.remove('active'); navLibrary.classList.remove('active'); navProfile.classList.remove('active');
     
-    if(view === 'home') {
-        homeView.style.display = 'block';
-        navHome.classList.add('active');
-        if(songListEl.innerHTML === '') {
-             categoriesGrid.style.display = 'grid';
-             songListEl.style.display = 'none';
-        }
-    } else if (view === 'library') {
-        libraryView.style.display = 'block';
-        navLibrary.classList.add('active');
-        renderLibrary();
+    if(view === 'home') { 
+        homeView.style.display = 'block'; 
+        navHome.classList.add('active'); 
+        if(songListEl.innerHTML === '') { 
+            categoriesGrid.style.display = 'grid'; 
+            songListEl.style.display = 'none'; 
+        } 
+    }
+    else if (view === 'library') { 
+        libraryView.style.display = 'block'; 
+        navLibrary.classList.add('active'); 
+        renderLibrary(); 
     }
 }
 
 navHome.addEventListener('click', () => setActiveView('home'));
 navLibrary.addEventListener('click', () => setActiveView('library'));
+navProfile.addEventListener('click', () => { openModal(profileModal.parentElement); navProfile.classList.add('active'); });
 
-// Profile Modal
-navProfile.addEventListener('click', () => {
-    openModal(profileModal.parentElement);
-    navProfile.classList.add('active');
-});
-
-// MODAL UTILS
+// General Modal Utils
 function openModal(el) { el.style.display = 'flex'; }
 function closeModal(el) { el.style.display = 'none'; }
 
-// Close button listeners
 closeModalBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
         closeModal(e.target.closest('.modal-backdrop'));
@@ -564,38 +591,33 @@ if(closeModalBtn) {
     });
 }
 
-// *** CLICKING BACKDROP CLOSES MODAL ***
-document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-    backdrop.addEventListener('click', (e) => {
-        // Close only if clicking the dark background, not the modal itself
-        if(e.target === backdrop) {
-            closeModal(backdrop);
-        }
-    });
+document.querySelectorAll('.modal-backdrop').forEach(backdrop => { 
+    backdrop.addEventListener('click', (e) => { 
+        if(e.target === backdrop) closeModal(backdrop); 
+    }); 
 });
 
-// Search Debounce
+// Search
 let timeout;
 searchInput.addEventListener('input', (e) => {
     clearTimeout(timeout);
     const q = e.target.value.trim();
-    if(q.length > 0) {
-        categoriesGrid.style.display = 'none';
-        songListEl.style.display = 'flex';
-        timeout = setTimeout(() => searchYouTube(q), 1000);
-    } else {
-        categoriesGrid.style.display = 'grid';
-        songListEl.style.display = 'none';
+    if(q.length > 0) { 
+        categoriesGrid.style.display = 'none'; 
+        songListEl.style.display = 'flex'; 
+        timeout = setTimeout(() => searchYouTube(q), 1000); 
+    } else { 
+        categoriesGrid.style.display = 'grid'; 
+        songListEl.style.display = 'none'; 
     }
 });
 
-// Global Trigger for Carousel
-window.triggerSearch = (artist) => {
-    searchInput.value = artist;
-    categoriesGrid.style.display = 'none';
-    songListEl.style.display = 'flex';
-    searchYouTube(artist);
+window.triggerSearch = (artist) => { 
+    searchInput.value = artist; 
+    categoriesGrid.style.display = 'none'; 
+    songListEl.style.display = 'flex'; 
+    searchYouTube(artist); 
 }
 
-// Init
+// Initial Render
 renderCategories();
