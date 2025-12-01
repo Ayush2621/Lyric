@@ -34,47 +34,46 @@
           <h3 style="margin: 0 0 12px 8px; font-size: 16px; color: var(--muted); font-weight:700;">Featured Artists</h3>
           
           <div id="singerCarousel" class="singer-carousel">
-            <div class="singer-card">
+            <div class="singer-card" onclick="triggerSearch('Arijit Singh')">
               <img src="arijit-singh.jpg" alt="Arijit" class="singer-img">
               <div class="singer-name">Arijit Singh</div>
             </div>
-            <div class="singer-card">
-              <img src="the-weeknd.jpg" alt="Sid Sriram" class="singer-img">
+            <div class="singer-card" onclick="triggerSearch('The Weeknd')">
+              <img src="the-weeknd.jpg" alt="The Weeknd" class="singer-img">
               <div class="singer-name">The Weeknd</div>
             </div>
-            <div class="singer-card">
+            <div class="singer-card" onclick="triggerSearch('Shreya Ghoshal')">
               <img src="shreya_ghoshal.jpg" alt="Shreya" class="singer-img">
               <div class="singer-name">Shreya Ghoshal</div>
             </div>
-            <div class="singer-card">
-              <img src="2pac.jpg" alt="Anirudh" class="singer-img">
+            <div class="singer-card" onclick="triggerSearch('2Pac')">
+              <img src="2pac.jpg" alt="2Pac" class="singer-img">
               <div class="singer-name">2Pac</div>
             </div>
-            <div class="singer-card">
+            <div class="singer-card" onclick="triggerSearch('Madhu Priya')">
               <img src="madhu_priya.jpeg" alt="DSP" class="singer-img">
               <div class="singer-name">Madhu Priya</div>
             </div>
-            <div class="singer-card">
-              <img src="eminem.jpg" alt="Thaman" class="singer-img">
+            <div class="singer-card" onclick="triggerSearch('Eminem')">
+              <img src="eminem.jpg" alt="Eminem" class="singer-img">
               <div class="singer-name">Eminem</div>
             </div>
-            <div class="singer-card">
+            <div class="singer-card" onclick="triggerSearch('Sonu Nigam')">
               <img src="Sonu-Nigam.jpg" alt="Sonu" class="singer-img">
               <div class="singer-name">Sonu Nigam</div>
             </div>
-            <div class="singer-card">
-              <img src="21-savage.jpg" alt="SPB" class="singer-img">
+            <div class="singer-card" onclick="triggerSearch('21 Savage')">
+              <img src="21-savage.jpg" alt="21 Savage" class="singer-img">
               <div class="singer-name">21 Savage</div>
             </div>
-            <div class="singer-card">
-              <img src="snoop-dogg.jpg" alt="Chithra" class="singer-img">
+            <div class="singer-card" onclick="triggerSearch('Snoop Dogg')">
+              <img src="snoop-dogg.jpg" alt="Snoop Dogg" class="singer-img">
               <div class="singer-name">Snoop Dogg</div>
             </div>
-            <div class="singer-card">
+            <div class="singer-card" onclick="triggerSearch('AR Rahman')">
               <img src="Ar.jpg" alt="Rahman" class="singer-img">
               <div class="singer-name">AR Rahman</div>
             </div>
-
           </div>
         </div>
 
@@ -93,7 +92,7 @@
       </div>
     </div>
 
-    <div id="miniPlayer" class="mini-player" aria-hidden="true" role="region" aria-label="Now playing">
+    <div id="miniPlayer" class="mini-player" aria-hidden="true" role="region" aria-label="Now playing" style="display:none;">
       <div class="mini-top">
         <div class="mini-progress-wrap" id="progressContainer" title="Seek">
           <div id="progressBar" class="progress-bar"></div>
@@ -119,7 +118,7 @@
             <button id="btnShuffle" class="btn-circle small" title="Shuffle" aria-label="Shuffle">🔀</button>
             <button id="btnPrev" class="btn-circle small" title="Previous" aria-label="Previous">⏮</button>
             <button id="miniPlayToggle" class="btn-circle large" aria-label="Play/Pause">
-              <svg id="miniPlayIcon" width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M5 3v18l15-9L5 3z" fill="white"/></svg>
+              <span id="miniPlayIcon">▶</span>
             </button>
             <button id="btnNext" class="btn-circle small" title="Next" aria-label="Next">⏭</button>
             <button id="btnRepeat" class="btn-circle small" title="Repeat" aria-label="Repeat">🔁</button>
@@ -139,7 +138,10 @@
         <button id="fsClose" class="fs-close" aria-label="Close player">✕</button>
 
         <div class="fs-top">
-          <div class="fs-cover" id="fsCover"></div>
+          <div class="fs-cover" id="fsCover">
+             <div id="youtube-player"></div>
+          </div>
+          
           <div class="fs-meta">
             <h2 id="fsTitle" class="fs-title"></h2>
             <div id="fsArtist" class="fs-artist"></div>
@@ -165,7 +167,7 @@
 
         <div class="fs-panel fs-panel-player" data-panel="player">
           <div class="fs-player-centered">
-            <div id="fsLargeCover" class="fs-large-cover"></div>
+            <div id="fsLargeCover" class="fs-large-cover" style="display:none;"></div>
             <div id="fsDescription" class="fs-description"></div>
           </div>
         </div>
@@ -184,8 +186,7 @@
       <div id="addPlaylistModal" class="modal playlist-modal" role="dialog" aria-modal="true" aria-labelledby="addPlaylistTitle">
         <h3 id="addPlaylistTitle">Add Song to Playlist</h3>
         <button class="modal-close-btn" aria-label="Close">✕</button>
-        <div id="addPlaylistList" class="playlist-list">
-          </div>
+        <div id="addPlaylistList" class="playlist-list"></div>
       </div>
     </div>
 
@@ -227,8 +228,6 @@
         About
       </button>
     </div>
-
-    <audio id="audio" preload="metadata"></audio>
   </div>
 </div>
   <script src="script.js"></script>
