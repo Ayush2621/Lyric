@@ -1,8 +1,24 @@
 /* ==========================================================================
    1. CONFIGURATION & GLOBAL STATE
    ========================================================================== */
-const YOUTUBE_API_KEY = "AIzaSyApMe9q_hGlgXF2V_d9tSvd0VWA4LDH6qU";
+/* --- MULTIPLE YOUTUBE API KEYS WITH AUTO-SWITCH --- */
+const YT_API_KEYS = [
+  "AIzaSyCaFmBuGlPyXIvEddP0B5MVDiejERURLAE", // public key first
+  "AIzaSyApMe9q_hGlgXF2V_d9tSvd0VWA4LDH6qU", // restricted key second
+];
+let activeApiIndex = 0;
+function getActiveApiKey() {
+  return YT_API_KEYS[activeApiIndex];
+}
+function rotateApiKey() {
+  activeApiIndex = (activeApiIndex + 1) % YT_API_KEYS.length;
+}
+
+/* --- playlists + quota keys --- */
 const PLAYLIST_STORAGE_KEY = "lyric_playlists_v6";
+const MAX_SEARCHES_PER_DAY = 50;
+const SEARCH_QUOTA_KEY = "yt_search_quota_v1";
+const SEARCH_CACHE_KEY = "yt_search_cache_v1";
 
 let player;
 let currentVideoId = null;
@@ -24,6 +40,9 @@ let shouldBePlaying = false;
 let keepAliveContext = null;
 let keepAliveOscillator = null;
 let backgroundWorker = null;
+
+// Search cache (per device)
+let searchCache = loadSearchCache();
 
 /* ==========================================================================
    2. DOM ELEMENTS
@@ -90,8 +109,11 @@ const newPlaylistInput = document.getElementById("newPlaylistInput");
 const createPlaylistConfirmBtn = document.getElementById("createPlaylistConfirmBtn");
 const closeModalBtns = document.querySelectorAll(".modal-close-btn");
 
+/* quota UI element */
+let searchQuotaLabel = null;
+
 /* ==========================================================================
-   3. BACKGROUND AUDIO HACK (for WebView + Screen Off)
+   3. BACKGROUND AUDIO HACK
    ========================================================================== */
 function initKeepAlive() {
   if (keepAliveContext) return;
@@ -106,9 +128,7 @@ function initKeepAlive() {
     gainNode.connect(keepAliveContext.destination);
     keepAliveOscillator.start();
 
-    if (keepAliveContext.state === "suspended") {
-      keepAliveContext.resume();
-    }
+    if (keepAliveContext.state === "suspended") keepAliveContext.resume();
 
     if (!backgroundWorker) {
       const blob = new Blob(
@@ -184,6 +204,9 @@ function onPlayerStateChange(event) {
     updatePlayButtons(true);
     startProgressLoop();
     updateMediaSession(currentSongTitle, currentSongArtist, currentSongCover);
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "playing";
+    }
     initKeepAlive();
   } else if (event.data === YT.PlayerState.PAUSED) {
     if (shouldBePlaying) {
@@ -191,14 +214,19 @@ function onPlayerStateChange(event) {
     } else {
       updatePlayButtons(false);
       stopProgressLoop();
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "paused";
+      }
     }
   } else if (event.data === YT.PlayerState.ENDED) {
     stopProgressLoop();
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "none";
+    }
     if (repeatMode === "one") {
       player.seekTo(0);
       player.playVideo();
     } else {
-      // ✅ when a song ends, go to next (playlist-aware)
       playNextSong();
     }
   }
@@ -279,29 +307,52 @@ function setupMarqueeIfNeeded() {
 }
 
 /* ==========================================================================
-   6. MEDIA SESSION (Lock screen controls)
+   6. MEDIA SESSION (lockscreen + earphone controls)
    ========================================================================== */
 function updateMediaSession(title, artist, cover) {
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title,
       artist,
-      artwork: [{ src: cover, sizes: "512x512", type: "image/jpeg" }],
+      artwork: [
+        { src: cover, sizes: "256x256", type: "image/jpeg" },
+        { src: cover, sizes: "512x512", type: "image/jpeg" },
+      ],
     });
+
     navigator.mediaSession.setActionHandler("play", () => {
       shouldBePlaying = true;
-      player.playVideo();
+      if (player && player.playVideo) player.playVideo();
+      navigator.mediaSession.playbackState = "playing";
     });
+
     navigator.mediaSession.setActionHandler("pause", () => {
       shouldBePlaying = false;
-      player.pauseVideo();
+      if (player && player.pauseVideo) player.pauseVideo();
+      navigator.mediaSession.playbackState = "paused";
     });
-    navigator.mediaSession.setActionHandler("previoustrack", () =>
-      playPrevSong()
-    );
-    navigator.mediaSession.setActionHandler("nexttrack", () =>
-      playNextSong()
-    );
+
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      playPrevSong();
+    });
+
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+      playNextSong();
+    });
+
+    try {
+      navigator.mediaSession.setActionHandler("stop", () => {
+        shouldBePlaying = false;
+        if (player && player.stopVideo) player.stopVideo();
+        navigator.mediaSession.playbackState = "none";
+      });
+    } catch (e) {
+      // some browsers don't support 'stop'
+    }
+
+    navigator.mediaSession.playbackState = shouldBePlaying
+      ? "playing"
+      : "paused";
   }
 }
 
@@ -345,7 +396,7 @@ async function updateLyrics(title, artist) {
 }
 
 /* ==========================================================================
-   8. CORE PLAYBACK FUNCTIONS
+   8. CORE PLAYBACK
    ========================================================================== */
 function playVideo(id, title, artist, cover) {
   currentVideoId = id;
@@ -358,29 +409,29 @@ function playVideo(id, title, artist, cover) {
     player.loadVideoById(id);
   }
 
-  miniTitle.textContent = title;
-  miniArtist.textContent = artist;
-  miniCover.style.backgroundImage = `url('${cover}')`;
+  // Mini player UI
+  if (miniPlayer) miniPlayer.style.display = "flex";
+  if (miniTitle) miniTitle.textContent = title;
+  if (miniArtist) miniArtist.textContent = artist;
+  if (miniCover) {
+    miniCover.style.backgroundImage = `url('${cover}')`;
+    miniCover.textContent = "";
+  }
 
-  fsTitle.textContent = title;
-  fsArtist.textContent = artist;
+  // Fullscreen UI
+  if (fsTitle) fsTitle.textContent = title;
+  if (fsArtist) fsArtist.textContent = artist;
+  if (fsDescription)
+    fsDescription.textContent = `${title} • ${artist}`;
 
   setupMarqueeIfNeeded();
   updateLyrics(title, artist);
   updateMediaSession(title, artist, cover);
-
-  miniPlayer.style.display = "flex";
   openFullScreen();
   initKeepAlive();
-
-  // refresh playlist highlight if in playlist
-  if (currentContext === "playlist" && currentPlaylistName) {
-    setTimeout(() => openPlaylistDetail(currentPlaylistName), 0);
-  }
 }
 
 function playNextSong() {
-  // ✅ Playlist context: go to next in that playlist
   if (
     currentContext === "playlist" &&
     currentPlaylistName &&
@@ -399,10 +450,9 @@ function playNextSong() {
       playVideo(next.id, next.title, next.artist, next.cover);
       return;
     }
-    return; // no repeat-all and at end
+    return;
   }
 
-  // Search context: go to next search result
   if (currentSearchItems.length > 0) {
     if (shuffleEnabled) {
       const randIdx = Math.floor(Math.random() * currentSearchItems.length);
@@ -476,16 +526,21 @@ window.togglePlay = () => {
   if (player.getPlayerState() === YT.PlayerState.PLAYING) {
     shouldBePlaying = false;
     player.pauseVideo();
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "paused";
+    }
   } else {
     shouldBePlaying = true;
     player.playVideo();
     if (keepAliveContext && keepAliveContext.state === "suspended") {
       keepAliveContext.resume();
     }
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "playing";
+    }
   }
 };
 
-// Mini / FS controls
 if (miniPlayToggle)
   miniPlayToggle.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -505,7 +560,6 @@ if (btnPrev)
     playPrevSong();
   });
 
-// Shuffle & repeat
 if (btnShuffle)
   btnShuffle.addEventListener("click", () => {
     shuffleEnabled = !shuffleEnabled;
@@ -540,7 +594,7 @@ if (btnRepeat) btnRepeat.addEventListener("click", toggleRepeat);
 if (fsRepeat) fsRepeat.addEventListener("click", toggleRepeat);
 
 /* ==========================================================================
-   9. FULLSCREEN & SEEK
+   9. FULLSCREEN & SEEK + PRO VIDEO LOOK
    ========================================================================== */
 function openFullScreen() {
   fsModal.style.display = "flex";
@@ -573,12 +627,10 @@ if (progressContainer)
     seek(e, progressContainer)
   );
 if (fsProgressWrap)
-  fsProgressWrap.addEventListener("click", (e) =>
-    seek(e, fsProgressWrap)
-  );
+  fsProgressWrap.addEventListener("click", (e) => seek(e, fsProgressWrap));
 
 /* ==========================================================================
-   10. PLAYLISTS (WITH SIMPLE UP/DOWN ARROWS)
+   10. PLAYLISTS (with ↑ / ↓ + Now Playing badge)
    ========================================================================== */
 function loadPlaylists() {
   try {
@@ -609,9 +661,7 @@ window.showAddPlaylistModal = (id, title, artist, cover) => {
     item.style.display = "flex";
     item.style.justifyContent = "space-between";
     item.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
-    item.innerHTML = `
-      <span>${name} (${playlists[name].length})</span> 
-      <button class="btn-circle small" style="width:30px;height:30px;">+</button>`;
+    item.innerHTML = `<span>${name} (${playlists[name].length})</span> <button class="btn-circle small" style="width:30px;height:30px;">+</button>`;
     item
       .querySelector("button")
       .addEventListener("click", (e) => {
@@ -626,9 +676,9 @@ window.showAddPlaylistModal = (id, title, artist, cover) => {
   createNew.innerHTML = `<button class="btn-primary" style="width:100%">Create New Playlist</button>`;
   createNew
     .querySelector("button")
-    .addEventListener("click", () =>
-      openModal(createPlaylistModalBackdrop)
-    );
+    .addEventListener("click", () => {
+      openModal(createPlaylistModalBackdrop);
+    });
   addPlaylistList.appendChild(createNew);
   openModal(addPlaylistModalBackdrop);
 };
@@ -677,26 +727,30 @@ function renderLibrary() {
   names.forEach((name) => {
     const div = document.createElement("div");
     div.className = "playlist-card";
-    div.innerHTML = `
-      <div class="thumb">${name.substring(0, 2).toUpperCase()}</div>
-      <div class="playlist-name">${name}</div>
-      <div style="font-size:12px; color:#888">${playlists[name].length} songs</div>`;
+    div.innerHTML = `<div class="thumb">${name
+      .substring(0, 2)
+      .toUpperCase()}</div><div class="playlist-name">${name}</div><div style="font-size:12px; color:#888">${playlists[name].length} songs</div>`;
     div.addEventListener("click", () => openPlaylistDetail(name));
     libraryList.appendChild(div);
   });
 }
 
 function openPlaylistDetail(name) {
+  currentContext = "playlist";
+  currentPlaylistName = name;
+
   libraryList.innerHTML = "";
   const header = document.createElement("div");
   header.style.marginBottom = "20px";
-  header.innerHTML = `
-    <button class="btn-circle small" id="backToLib">←</button> 
-    <span style="font-size:20px; font-weight:bold; margin-left:10px;">${name}</span>`;
+  header.innerHTML = `<button class="btn-circle small" id="backToLib">←</button> <span style="font-size:20px; font-weight:bold; margin-left:10px;">${name}</span>`;
   libraryList.appendChild(header);
   document
     .getElementById("backToLib")
-    .addEventListener("click", renderLibrary);
+    .addEventListener("click", () => {
+      currentContext = "search";
+      currentPlaylistName = null;
+      renderLibrary();
+    });
 
   const songs = playlists[name];
   if (!songs || songs.length === 0) {
@@ -704,63 +758,79 @@ function openPlaylistDetail(name) {
     return;
   }
 
-  songs.forEach((item) => {
-    const isActive =
-      currentContext === "playlist" &&
-      currentPlaylistName === name &&
-      currentVideoId === item.id;
-
+  songs.forEach((item, index) => {
     const div = document.createElement("div");
-    div.className = "song playlist-song" + (isActive ? " active-song" : "");
+    div.className = "song";
+
+    const isActive = item.id === currentVideoId;
+    if (isActive) {
+      div.classList.add("active-song");
+    }
+
     div.innerHTML = `
       <div class="cover" style="background-image: url('${item.cover}')"></div>
       <div class="meta">
         <div class="name">${item.title}</div>
         <div class="artist">${item.artist}</div>
-        ${isActive ? '<div class="np-badge">Now Playing</div>' : ""}
+        ${
+          isActive
+            ? `<div class="np-badge">Now Playing</div>`
+            : ""
+        }
       </div>
       <div class="controls">
-        <button class="btn-circle small" onclick="event.stopPropagation(); moveSongUp('${name}','${item.id}')">↑</button>
-        <button class="btn-circle small" onclick="event.stopPropagation(); moveSongDown('${name}','${item.id}')">↓</button>
-        <button class="btn-circle small" onclick="event.stopPropagation(); removeFromPlaylist('${name}','${item.id}')">🗑</button>
+        <button class="btn-circle small" data-dir="up">↑</button>
+        <button class="btn-circle small" data-dir="down">↓</button>
+        <button class="btn-circle small" data-action="delete">🗑</button>
       </div>
     `;
 
-    // ✅ tap on song row → play it and set playlist context
     div.addEventListener("click", () => {
+      playVideo(item.id, item.title, item.artist, item.cover);
       currentContext = "playlist";
       currentPlaylistName = name;
-      playVideo(item.id, item.title, item.artist, item.cover);
+    });
+
+    const controls = div.querySelector(".controls");
+    controls.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const dir = btn.dataset.dir;
+      const action = btn.dataset.action;
+
+      if (dir === "up") moveSongUp(name, index);
+      else if (dir === "down") moveSongDown(name, index);
+      else if (action === "delete") removeFromPlaylist(name, item.id);
+
+      if (navigator.vibrate) {
+        navigator.vibrate(15);
+      }
     });
 
     libraryList.appendChild(div);
   });
 }
 
-// SIMPLE UP / DOWN MOVES
-window.moveSongUp = (name, id) => {
-  const list = playlists[name];
-  if (!list) return;
-  const idx = list.findIndex((s) => s.id === id);
-  if (idx > 0) {
-    const [song] = list.splice(idx, 1);
-    list.splice(idx - 1, 0, song);
-    savePlaylists();
-    openPlaylistDetail(name);
-  }
-};
+function moveSongUp(name, index) {
+  const arr = playlists[name];
+  if (!arr || index <= 0) return;
+  const tmp = arr[index - 1];
+  arr[index - 1] = arr[index];
+  arr[index] = tmp;
+  savePlaylists();
+  openPlaylistDetail(name);
+}
 
-window.moveSongDown = (name, id) => {
-  const list = playlists[name];
-  if (!list) return;
-  const idx = list.findIndex((s) => s.id === id);
-  if (idx >= 0 && idx < list.length - 1) {
-    const [song] = list.splice(idx, 1);
-    list.splice(idx + 1, 0, song);
-    savePlaylists();
-    openPlaylistDetail(name);
-  }
-};
+function moveSongDown(name, index) {
+  const arr = playlists[name];
+  if (!arr || index >= arr.length - 1) return;
+  const tmp = arr[index + 1];
+  arr[index + 1] = arr[index];
+  arr[index] = tmp;
+  savePlaylists();
+  openPlaylistDetail(name);
+}
 
 window.removeFromPlaylist = (name, id) => {
   playlists[name] = playlists[name].filter((s) => s.id !== id);
@@ -769,7 +839,7 @@ window.removeFromPlaylist = (name, id) => {
 };
 
 /* ==========================================================================
-   11. NAVIGATION & MODALS
+   11. NAV & PROFILE MODAL
    ========================================================================== */
 function setActiveView(view) {
   homeView.style.display = "none";
@@ -794,52 +864,147 @@ function setActiveView(view) {
 navHome.addEventListener("click", () => setActiveView("home"));
 navLibrary.addEventListener("click", () => setActiveView("library"));
 navProfile.addEventListener("click", () => {
-  openModal(profileModal.parentElement);
+  openModal(modalBackdrop);
   navProfile.classList.add("active");
 });
 
-function openModal(el) {
-  el.style.display = "flex";
+function openModal(backdrop) {
+  if (!backdrop) return;
+  backdrop.style.display = "flex";
 }
-function closeModal(el) {
-  el.style.display = "none";
+function closeModal(backdrop) {
+  if (!backdrop) return;
+  backdrop.style.display = "none";
 }
+
+if (closeModalBtn)
+  closeModalBtn.addEventListener("click", () => closeModal(modalBackdrop));
 closeModalBtns.forEach((btn) => {
-  btn.addEventListener("click", (e) => {
-    closeModal(e.target.closest(".modal-backdrop"));
+  btn.addEventListener("click", () => {
+    closeModal(addPlaylistModalBackdrop);
+    closeModal(createPlaylistModalBackdrop);
+    closeModal(modalBackdrop);
   });
 });
-if (closeModalBtn) {
-  closeModalBtn.addEventListener("click", () => {
-    closeModal(modalBackdrop);
-    if (homeView.style.display === "block")
-      navHome.classList.add("active");
-    else navLibrary.classList.add("active");
-  });
-}
-document
-  .querySelectorAll(".modal-backdrop")
-  .forEach((backdrop) => {
+
+[modalBackdrop, addPlaylistModalBackdrop, createPlaylistModalBackdrop].forEach(
+  (backdrop) => {
+    if (!backdrop) return;
     backdrop.addEventListener("click", (e) => {
       if (e.target === backdrop) closeModal(backdrop);
     });
-  });
+  }
+);
 
 /* ==========================================================================
-   12. SEARCH & CATEGORIES
+   12. SEARCH QUOTA + CACHE HELPERS
+   ========================================================================== */
+function getTodayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getQuotaState() {
+  try {
+    const raw = localStorage.getItem(SEARCH_QUOTA_KEY);
+    const today = getTodayStr();
+    if (!raw) return { date: today, count: 0 };
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.date !== today) return { date: today, count: 0 };
+    if (typeof parsed.count !== "number") return { date: today, count: 0 };
+    return parsed;
+  } catch (e) {
+    return { date: getTodayStr(), count: 0 };
+  }
+}
+
+function canUseSearchQuota() {
+  const state = getQuotaState();
+  return state.count < MAX_SEARCHES_PER_DAY;
+}
+
+function consumeSearchQuota() {
+  const state = getQuotaState();
+  const updated = { date: state.date, count: state.count + 1 };
+  try {
+    localStorage.setItem(SEARCH_QUOTA_KEY, JSON.stringify(updated));
+  } catch (_) {}
+}
+
+function loadSearchCache() {
+  try {
+    const raw = localStorage.getItem(SEARCH_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch (e) {
+    return {};
+  }
+}
+function saveSearchCache() {
+  try {
+    localStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(searchCache));
+  } catch (_) {}
+}
+
+function setupQuotaUI() {
+  if (!searchInput) return;
+  let container = searchInput.parentElement || homeView || document.body;
+
+  let el = document.getElementById("searchQuotaInfo");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "searchQuotaInfo";
+    el.style.fontSize = "11px";
+    el.style.opacity = "0.8";
+    el.style.marginTop = "4px";
+    el.style.display = "flex";
+    el.style.justifyContent = "space-between";
+    el.style.gap = "8px";
+    el.style.alignItems = "center";
+    container.appendChild(el);
+  }
+  searchQuotaLabel = el;
+  updateQuotaUI();
+}
+
+function updateQuotaUI() {
+  if (!searchQuotaLabel) return;
+  const state = getQuotaState();
+  const used = state.count;
+  const left = Math.max(0, MAX_SEARCHES_PER_DAY - used);
+
+  searchQuotaLabel.innerHTML = `
+    <span>Daily search limit: <strong>${MAX_SEARCHES_PER_DAY}</strong></span>
+    <span>Used: <strong>${used}</strong> &nbsp;|&nbsp; Left: <strong>${left}</strong></span>
+  `;
+}
+
+/* ==========================================================================
+   13. SEARCH & CATEGORIES (with limit + multi-key)
    ========================================================================== */
 let searchTimeout;
 searchInput.addEventListener("input", (e) => {
   clearTimeout(searchTimeout);
   const q = e.target.value.trim();
-  if (q.length > 0) {
-    categoriesGrid.style.display = "none";
-    songListEl.style.display = "flex";
-    searchTimeout = setTimeout(() => searchYouTube(q), 800);
-  } else {
+
+  if (q.length === 0) {
     categoriesGrid.style.display = "grid";
     songListEl.style.display = "none";
+    return;
   }
+
+  categoriesGrid.style.display = "none";
+  songListEl.style.display = "flex";
+
+  if (q.length < 3) {
+    songListEl.innerHTML =
+      '<div class="empty">Type at least 3 characters to search.</div>';
+    return;
+  }
+
+  // "Complete search" only: wait 1.5s after user finishes typing
+  searchTimeout = setTimeout(() => searchYouTube(q), 1500);
 });
 
 window.triggerSearch = (artist) => {
@@ -850,42 +1015,12 @@ window.triggerSearch = (artist) => {
 };
 
 const musicCategories = [
-  {
-    id: "trending",
-    name: "Trending Now",
-    color: "#E91E63",
-    query: "Trending Music",
-  },
-  {
-    id: "hindi",
-    name: "Top Hindi",
-    color: "#9C27B0",
-    query: "Latest Hindi Songs",
-  },
-  {
-    id: "telugu",
-    name: "Top Telugu",
-    color: "#3F51B5",
-    query: "Latest Telugu Songs",
-  },
-  {
-    id: "tamil",
-    name: "Top Tamil",
-    color: "#009688",
-    query: "Latest Tamil Songs",
-  },
-  {
-    id: "english",
-    name: "Top English",
-    color: "#FF9800",
-    query: "Top Global Hits",
-  },
-  {
-    id: "lofi",
-    name: "Lofi Beats",
-    color: "#607D8B",
-    query: "Lofi Hip Hop",
-  },
+  { id: "trending", name: "Trending Now", color: "#E91E63", query: "Trending Music" },
+  { id: "hindi",    name: "Top Hindi",    color: "#9C27B0", query: "Latest Hindi Songs" },
+  { id: "telugu",   name: "Top Telugu",   color: "#3F51B5", query: "Latest Telugu Songs" },
+  { id: "tamil",    name: "Top Tamil",    color: "#009688", query: "Latest Tamil Songs" },
+  { id: "english",  name: "Top English",  color: "#FF9800", query: "Top Global Hits" },
+  { id: "lofi",     name: "Lofi Beats",   color: "#607D8B", query: "Lofi Hip Hop" },
 ];
 
 function renderCategories() {
@@ -920,26 +1055,93 @@ if (btnBackToCategories) {
   });
 }
 
+/* --- multi-key + quota + cache search (fixed rotation) --- */
 async function searchYouTube(query) {
-  songListEl.innerHTML = '<div class="empty">Loading...</div>';
-  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-    query
-  )}&type=video&videoCategoryId=10&maxResults=25&key=${YOUTUBE_API_KEY}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.items) {
-      currentSearchItems = data.items;
-      renderSongs(data.items);
-    } else {
-      songListEl.innerHTML =
-        '<div class="empty">No results found.</div>';
-    }
-  } catch (e) {
-    console.error(e);
-    songListEl.innerHTML =
-      '<div class="empty">Check your internet connection.</div>';
+  const trimmed = query.trim();
+  if (!trimmed) return;
+
+  const keyStr = trimmed.toLowerCase();
+  const today = getTodayStr();
+
+  // 1) cache first
+  const cached = searchCache[keyStr];
+  if (cached && cached.date === today && Array.isArray(cached.items)) {
+    currentSearchItems = cached.items;
+    renderSongs(cached.items);
+    return;
   }
+
+  // 2) daily quota check
+  if (!canUseSearchQuota()) {
+    const state = getQuotaState();
+    const used = state.count;
+    songListEl.innerHTML =
+      `<div class="empty">You reached today's search limit (${used}/${MAX_SEARCHES_PER_DAY}). You can still play from playlists and already loaded songs.</div>`;
+    updateQuotaUI();
+    return;
+  }
+
+  // consume 1 slot for this "complete search"
+  consumeSearchQuota();
+  updateQuotaUI();
+
+  songListEl.innerHTML = '<div class="empty">Loading.</div>';
+
+  const buildUrl = (apiKey) =>
+    `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+      trimmed
+    )}&type=video&videoCategoryId=10&maxResults=25&key=${apiKey}`;
+
+  let lastError = null;
+
+  // Try each key in order
+  for (let i = 0; i < YT_API_KEYS.length; i++) {
+    const apiKey = YT_API_KEYS[i];
+    try {
+      const res = await fetch(buildUrl(apiKey));
+
+      if (!res.ok) {
+        // HTTP error (403 etc)
+        try {
+          const errData = await res.json();
+          console.error("YouTube HTTP error with key index", i, errData);
+          lastError = errData;
+        } catch (e) {
+          console.error("YouTube HTTP error with key index", i, res.status);
+          lastError = { status: res.status };
+        }
+        continue;
+      }
+
+      const data = await res.json();
+
+      if (data.error) {
+        console.error("YouTube API error with key index", i, data.error);
+        lastError = data.error;
+        continue;
+      }
+
+      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+        activeApiIndex = i; // remember which key worked last
+        currentSearchItems = data.items;
+        searchCache[keyStr] = { date: today, items: data.items };
+        saveSearchCache();
+        renderSongs(data.items);
+        return;
+      } else {
+        lastError = { message: "No items returned", keyIndex: i };
+        continue;
+      }
+    } catch (e) {
+      console.error("YouTube fetch error with key index", i, e);
+      lastError = e;
+      continue;
+    }
+  }
+
+  console.error("YouTube API error (all keys failed):", lastError);
+  songListEl.innerHTML =
+    '<div class="empty">Search unavailable right now. Please try again later.</div>';
 }
 
 function renderSongs(items) {
@@ -973,7 +1175,6 @@ function renderSongs(items) {
       </div>
     `;
 
-    // click → play from search context
     div.addEventListener("click", () => {
       currentContext = "search";
       currentPlaylistName = null;
@@ -984,4 +1185,10 @@ function renderSongs(items) {
   });
 }
 
+/* ==========================================================================
+   14. INIT
+   ========================================================================== */
 renderCategories();
+setupQuotaUI();
+updateQuotaUI();
+setActiveView("home");
