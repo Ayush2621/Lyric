@@ -2,11 +2,11 @@
    THEME VARIABLES
    ========================================================================== */
 :root {
-  --bg: #050816;
-  --card: #111827;
-  --glass: rgba(15, 23, 42, 0.8);
-  --accent: #6366f1;
-  --accent-strong: #22d3ee;
+  --bg: #131327;
+  --card: #0b0e16;
+  --glass: rgba(10, 10, 23, 0.8);
+  --accent: #180c0c;
+  --accent-strong:  #5dcf51;
   --accent-soft: rgba(99, 102, 241, 0.18);
   --muted: #9ca3af;
   --text: #e5e7eb;
@@ -35,7 +35,7 @@ body {
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, #020617 0, #000 60%);
+  background: radial-gradient(circle at top, #464747 0, #565555 60%);
   color: var(--text);
 }
 
@@ -48,14 +48,14 @@ body {
   align-items: stretch;
   justify-content: center;
   padding: 10px;
-  background: radial-gradient(circle at top, #020617 0, #000 60%);
+  background: radial-gradient(circle at top, #000000 0, #000000 60%);
 }
 
 .app {
   width: 100%;
   max-width: 480px;
   min-height: calc(100vh - 20px);
-  background: linear-gradient(145deg, #020617, #020617);
+  background: linear-gradient(145deg, #000000, #000000);
   border-radius: 28px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
   padding: 16px;
@@ -98,7 +98,7 @@ body {
   color: var(--accent-strong);
   letter-spacing: 1.4px;
   user-select: none;
-  text-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+  text-shadow: 0 0 20px rgba(2, 2, 2, 0.8);
 }
 
 .brand .title {
@@ -110,11 +110,11 @@ body {
   border-radius: 50%;
   width: 40px;
   height: 40px;
-  background: radial-gradient(circle at top, #22d3ee, #6366f1);
+  background: radial-gradient(circle at top, #444443, #353535);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 25px rgba(56, 189, 248, 0.7);
+  box-shadow: 0 8px 25px rgba(8, 8, 8, 0.7);
   cursor: default;
   overflow: hidden;
 }
