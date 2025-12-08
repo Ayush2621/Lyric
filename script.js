@@ -35,11 +35,9 @@ let repeatMode = "off"; // 'off', 'one', 'all'
 let currentContext = "search";       // 'search' | 'playlist'
 let currentPlaylistName = null;      // which playlist is active
 
-// Background play
+// Background play & Media Session State
 let shouldBePlaying = false;
-let keepAliveContext = null;
-let keepAliveOscillator = null;
-let backgroundWorker = null;
+let silentAudio = null; // Replaces oscillator for better Lockscreen support
 
 // Search cache (per device)
 let searchCache = loadSearchCache();
@@ -113,60 +111,53 @@ const closeModalBtns = document.querySelectorAll(".modal-close-btn");
 let searchQuotaLabel = null;
 
 /* ==========================================================================
-   3. BACKGROUND AUDIO HACK
+   3. BACKGROUND AUDIO & MEDIA SESSION FIX
    ========================================================================== */
-function initKeepAlive() {
-  if (keepAliveContext) return;
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    keepAliveContext = new AudioContext();
+// We use a silent MP3 loop. This "tricks" the OS into thinking a native audio 
+// track is playing, which enables the Lockscreen UI and keeps the app alive in background.
+const SILENT_MP3_B64 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAD9MYXZjNTguNTQuMTAwAAAAAAAAAAAA//OEAAAAAAABEAAAAQAABHHpAAAAAAAAAAAAAA";
 
-    keepAliveOscillator = keepAliveContext.createOscillator();
-    const gainNode = keepAliveContext.createGain();
-    gainNode.gain.value = 0.0001;
-    keepAliveOscillator.connect(gainNode);
-    gainNode.connect(keepAliveContext.destination);
-    keepAliveOscillator.start();
+function initSilentAudio() {
+  if (silentAudio) return;
+  
+  silentAudio = new Audio(SILENT_MP3_B64);
+  silentAudio.loop = true;
+  silentAudio.volume = 0; // Silent
+  silentAudio.autoplay = false;
+  
+  // Mobile browsers require user interaction to start audio. 
+  // We attach a one-time listener to the document.
+  const unlockAudio = () => {
+    silentAudio.play().then(() => {
+      silentAudio.pause(); // Immediately pause, we only play when video plays
+      silentAudio.currentTime = 0;
+    }).catch(e => console.log("Silent audio unlock failed yet", e));
+    document.removeEventListener('click', unlockAudio);
+    document.removeEventListener('touchstart', unlockAudio);
+  };
+  
+  document.addEventListener('click', unlockAudio);
+  document.addEventListener('touchstart', unlockAudio);
+}
 
-    if (keepAliveContext.state === "suspended") keepAliveContext.resume();
+// Call this immediately
+initSilentAudio();
 
-    if (!backgroundWorker) {
-      const blob = new Blob(
-        [`setInterval(() => { postMessage('tick'); }, 1000);`],
-        { type: "application/javascript" }
-      );
-      backgroundWorker = new Worker(URL.createObjectURL(blob));
-      backgroundWorker.onmessage = function () {
-        if (keepAliveContext && keepAliveContext.state === "suspended") {
-          keepAliveContext.resume();
-        }
-        if (
-          player &&
-          shouldBePlaying &&
-          player.getPlayerState &&
-          player.getPlayerState() === YT.PlayerState.PAUSED
-        ) {
-          player.playVideo();
-        }
-      };
-    }
-  } catch (e) {
-    console.error("KeepAlive error:", e);
+function syncSilentAudio(isPlaying) {
+  if (!silentAudio) initSilentAudio();
+  if (isPlaying) {
+    silentAudio.play().catch(e => console.error("Silent Audio Play Error:", e));
+  } else {
+    silentAudio.pause();
   }
 }
 
+// Ensure video resumes if paused by OS when switching apps
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    if (keepAliveContext && keepAliveContext.state === "suspended") {
-      keepAliveContext.resume();
-    }
-    if (
-      player &&
-      shouldBePlaying &&
-      player.getPlayerState &&
-      player.getPlayerState() !== YT.PlayerState.PLAYING
-    ) {
+    if (shouldBePlaying && player && player.getPlayerState && player.getPlayerState() !== YT.PlayerState.PLAYING) {
       player.playVideo();
+      syncSilentAudio(true);
     }
   }
 });
@@ -195,31 +186,42 @@ function onYouTubeIframeAPIReady() {
     events: {
       onStateChange: onPlayerStateChange,
       onError: (e) => console.log("Player Error", e),
+      onReady: () => { console.log("Player Ready"); }
     },
   });
 }
 
 function onPlayerStateChange(event) {
   if (event.data === YT.PlayerState.PLAYING) {
+    shouldBePlaying = true;
     updatePlayButtons(true);
     startProgressLoop();
+    syncSilentAudio(true); // Keep alive
     updateMediaSession(currentSongTitle, currentSongArtist, currentSongCover);
+    
+    // Ensure media session state is playing
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = "playing";
     }
-    initKeepAlive();
+    
   } else if (event.data === YT.PlayerState.PAUSED) {
+    // If user didn't intentionally pause (e.g., backgrounding caused it), try to resume
     if (shouldBePlaying) {
-      player.playVideo();
+        // Small delay to prevent conflict loop
+        setTimeout(() => {
+            if(shouldBePlaying) player.playVideo();
+        }, 100);
     } else {
       updatePlayButtons(false);
       stopProgressLoop();
+      syncSilentAudio(false);
       if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "paused";
       }
     }
   } else if (event.data === YT.PlayerState.ENDED) {
     stopProgressLoop();
+    syncSilentAudio(false);
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = "none";
     }
@@ -229,6 +231,9 @@ function onPlayerStateChange(event) {
     } else {
       playNextSong();
     }
+  } else if (event.data === YT.PlayerState.BUFFERING) {
+      // Keep silent audio playing during buffering to hold the lockscreen
+      syncSilentAudio(true); 
   }
 }
 
@@ -307,27 +312,33 @@ function setupMarqueeIfNeeded() {
 }
 
 /* ==========================================================================
-   6. MEDIA SESSION (lockscreen + earphone controls)
+   6. MEDIA SESSION (Lockscreen + Earphone Controls)
    ========================================================================== */
 function updateMediaSession(title, artist, cover) {
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
-      title,
-      artist,
+      title: title,
+      artist: artist,
       artwork: [
+        { src: cover, sizes: "96x96", type: "image/jpeg" },
+        { src: cover, sizes: "128x128", type: "image/jpeg" },
+        { src: cover, sizes: "192x192", type: "image/jpeg" },
         { src: cover, sizes: "256x256", type: "image/jpeg" },
+        { src: cover, sizes: "384x384", type: "image/jpeg" },
         { src: cover, sizes: "512x512", type: "image/jpeg" },
       ],
     });
 
     navigator.mediaSession.setActionHandler("play", () => {
       shouldBePlaying = true;
+      syncSilentAudio(true);
       if (player && player.playVideo) player.playVideo();
       navigator.mediaSession.playbackState = "playing";
     });
 
     navigator.mediaSession.setActionHandler("pause", () => {
       shouldBePlaying = false;
+      syncSilentAudio(false);
       if (player && player.pauseVideo) player.pauseVideo();
       navigator.mediaSession.playbackState = "paused";
     });
@@ -340,19 +351,22 @@ function updateMediaSession(title, artist, cover) {
       playNextSong();
     });
 
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if(player && player.seekTo) {
+             player.seekTo(details.seekTime);
+        }
+    });
+
     try {
       navigator.mediaSession.setActionHandler("stop", () => {
         shouldBePlaying = false;
+        syncSilentAudio(false);
         if (player && player.stopVideo) player.stopVideo();
         navigator.mediaSession.playbackState = "none";
       });
     } catch (e) {
       // some browsers don't support 'stop'
     }
-
-    navigator.mediaSession.playbackState = shouldBePlaying
-      ? "playing"
-      : "paused";
   }
 }
 
@@ -418,11 +432,14 @@ function playVideo(id, title, artist, cover) {
 
   setupMarqueeIfNeeded();
   updateLyrics(title, artist);
+  
+  // Important: Update media session immediately so lockscreen updates
   updateMediaSession(title, artist, cover);
+  syncSilentAudio(true);
 
   miniPlayer.style.display = "flex";
   openFullScreen();
-  initKeepAlive();
+  
   if ("mediaSession" in navigator) {
     navigator.mediaSession.playbackState = "playing";
   }
@@ -527,15 +544,14 @@ window.togglePlay = () => {
   if (player.getPlayerState() === YT.PlayerState.PLAYING) {
     shouldBePlaying = false;
     player.pauseVideo();
+    syncSilentAudio(false);
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = "paused";
     }
   } else {
     shouldBePlaying = true;
     player.playVideo();
-    if (keepAliveContext && keepAliveContext.state === "suspended") {
-      keepAliveContext.resume();
-    }
+    syncSilentAudio(true);
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = "playing";
     }
