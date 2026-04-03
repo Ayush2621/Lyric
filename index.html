@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Lyric — Web Music</title>
   <link rel="shortcut icon" type="x-icon" href="lyric.png">
   <link rel="stylesheet" href="style.css" />
@@ -15,12 +15,12 @@
         <div class="logo">Lyric</div>
         <div>
           <div class="title"></div>
-          <div style="font-size:12px;color:var(--muted)">The World Of Music</div>
+          <div style="font-size:12px;color:var(--text-muted)">The World Of Music</div>
         </div>
       </div>
       <div class="top-right">
         <div class="app-icon" title="App icon (top-right)">
-          <img src="lyric.png" alt="Custom App Icon" width="22" height="22">
+          <img src="lyric.png" alt="Custom App Icon" width="22" height="22" onerror="this.style.display='none'">
         </div>
       </div>
     </div>
@@ -31,63 +31,65 @@
       <div id="homeView" class="home-view">
         
         <div class="carousel-section">
-          <h3 style="margin: 0 0 12px 8px; font-size: 16px; color: var(--muted); font-weight:700;">Featured Artists</h3>
+          <h3 class="section-title">Top Voices</h3>
           
           <div id="singerCarousel" class="singer-carousel">
             <div class="singer-card" onclick="triggerSearch('Arijit Singh')">
-              <img src="arijit-singh.jpg" alt="Arijit" class="singer-img">
+              <img src="arijit-singh.jpg" alt="Arijit" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">Arijit Singh</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('The Weeknd')">
-              <img src="the-weeknd.jpg" alt="The Weeknd" class="singer-img">
+              <img src="the-weeknd.jpg" alt="The Weeknd" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">The Weeknd</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('Shreya Ghoshal')">
-              <img src="shreya_ghoshal.jpg" alt="Shreya" class="singer-img">
+              <img src="shreya_ghoshal.jpg" alt="Shreya" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">Shreya Ghoshal</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('2Pac')">
-              <img src="2pac.jpg" alt="2Pac" class="singer-img">
+              <img src="2pac.jpg" alt="2Pac" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">2Pac</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('Madhu Priya')">
-              <img src="madhu_priya.jpeg" alt="DSP" class="singer-img">
+              <img src="madhu_priya.jpeg" alt="DSP" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">Madhu Priya</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('Eminem')">
-              <img src="eminem.jpg" alt="Eminem" class="singer-img">
+              <img src="eminem.jpg" alt="Eminem" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">Eminem</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('Sonu Nigam')">
-              <img src="Sonu-Nigam.jpg" alt="Sonu" class="singer-img">
+              <img src="Sonu-Nigam.jpg" alt="Sonu" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">Sonu Nigam</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('21 Savage')">
-              <img src="21-savage.jpg" alt="21 Savage" class="singer-img">
+              <img src="21-savage.jpg" alt="21 Savage" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">21 Savage</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('Snoop Dogg')">
-              <img src="snoop-dogg.jpg" alt="Snoop Dogg" class="singer-img">
+              <img src="snoop-dogg.jpg" alt="Snoop Dogg" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">Snoop Dogg</div>
             </div>
             <div class="singer-card" onclick="triggerSearch('AR Rahman')">
-              <img src="Ar.jpg" alt="Rahman" class="singer-img">
+              <img src="Ar.jpg" alt="Rahman" class="singer-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23333\'/></svg>'">
               <div class="singer-name">AR Rahman</div>
             </div>
           </div>
         </div>
 
-        <div id="categoryNavHeader" style="display:none; align-items:center; gap:12px; margin-bottom:15px;">
-           <button id="btnBackToCategories" class="btn-circle small" style="background:var(--card);">←</button>
-           <h2 id="currentCategoryTitle" style="margin:0; font-size:20px; color:var(--text);">Category Name</h2>
+        <div id="categoryNavHeader" style="display:none; align-items:center; gap:12px; margin-bottom:15px; padding: 0 16px;">
+           <button id="btnBackToCategories" class="btn-circle small" style="background:var(--bg-elevated);">←</button>
+           <h2 id="currentCategoryTitle" style="margin:0; font-size:20px; color:var(--text-main);">Category Name</h2>
         </div>
 
+        <h3 class="section-title" id="moodsTitle">Discover Moods</h3>
         <div id="categoriesGrid" class="categories-grid"></div>
 
         <div class="song-list" id="songList" style="display:none;"></div>
       </div>
 
       <div id="libraryView" class="home-view" style="display:none;padding-top:12px;">
+        <h3 class="section-title">Your Playlists</h3>
         <div class="library" id="libraryList"></div>
       </div>
     </div>
@@ -124,14 +126,14 @@
             <button id="btnRepeat" class="btn-circle small" title="Repeat" aria-label="Repeat">🔁</button>
             <button id="btnExpand" class="btn-circle small" title="Open player" aria-label="Open full player">⤢</button>
           </div>
-          <div class="mini-time">
+          <div class="mini-time" style="display:none;">
             <span id="currentTimeDisplay">0:00</span> / <span id="durationDisplay">0:00</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div id="fullScreenPlayer" class="fullscreen-player" aria-hidden="true" role="dialog" aria-label="Full screen player">
+    <div id="fullScreenPlayer" class="fullscreen-player" aria-hidden="true" role="dialog" aria-label="Full screen player" style="display:none;">
       <div id="fsBackdrop" class="fs-backdrop"></div>
 
       <div class="fs-card" role="document" id="fsCard">
@@ -145,19 +147,21 @@
           <div class="fs-meta">
             <h2 id="fsTitle" class="fs-title"></h2>
             <div id="fsArtist" class="fs-artist"></div>
+            
+            <div class="fs-progress" id="fsProgressWrap" title="Seek">
+              <div id="fsProgress" class="fs-progress-bar"></div>
+            </div>
+            <div class="fs-time"><span id="fsCurrent">0:00</span><span id="fsDuration">0:00</span></div>
+
             <div class="fs-controls">
-              <button id="fsPrev" class="btn-circle small">⏮</button>
-              <button id="fsPlay" class="btn-circle large">▶</button>
-              <button id="fsNext" class="btn-circle small">⏭</button>
               <button id="fsShuffle" class="btn-circle small">🔀</button>
+              <button id="fsPrev" class="btn-circle small" style="font-size:28px">⏮</button>
+              <button id="fsPlay" class="fs-play">▶</button>
+              <button id="fsNext" class="btn-circle small" style="font-size:28px">⏭</button>
               <button id="fsRepeat" class="btn-circle small">🔁</button>
             </div>
-            <div class="fs-time"><span id="fsCurrent">0:00</span> / <span id="fsDuration">0:00</span></div>
+            
           </div>
-        </div>
-
-        <div class="fs-progress" id="fsProgressWrap" title="Seek">
-          <div id="fsProgress" class="fs-progress-bar"></div>
         </div>
 
         <div class="fs-tabs">
@@ -198,18 +202,25 @@
           <label for="newPlaylistInput">Playlist Name</label>
           <input type="text" id="newPlaylistInput" placeholder="My Awesome Jams" required>
         </div>
-        <div class="row" style="justify-content:flex-end; margin-top: 15px;">
-          <button id="createPlaylistConfirmBtn" class="btn-primary" style="padding: 8px 15px;">Create</button>
+        <div class="row" style="justify-content:flex-end; margin-top: 20px;">
+          <button id="createPlaylistConfirmBtn" class="btn-primary">Create Playlist</button>
         </div>
       </div>
     </div>
 
-    <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
-      <div id="profileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-        <h3 id="modalTitle">About Lyric</h3>
-        <p style="color:var(--muted);margin:6px 0 0 0">Lyric is a user-friendly music player built for seamless song browsing and playback.<br>With responsive controls and a visually appealing layout, it enhances your music experience.<br><p>IDEATION : POOJARI VISHNU RAJ</p><p>Developer: AYUSH MISHRA.</p><p>Testing And Review By : MANTHAN </p></p>
-        <div class="row" style="justify-content:flex-end;">
-          <button id="closeModal" class="btn-circle" style="width:38px;height:38px;border-radius:8px">OK</button>
+    <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true" style="display: none;">
+      <div id="profileModal" class="modal indian-modal" role="dialog" aria-modal="true">
+        <h3 class="indian-title">The World of Music</h3>
+        <div class="indian-content">
+          <p><strong>Lyric</strong> is a user-friendly music player built for seamless song browsing and playback.</p>
+          <div class="credits">
+            <p><span>Ideation</span><br>POOJARI VISHNU RAJ</p>
+            <p><span>Developer</span><br>AYUSH MISHRA</p>
+            <p><span>Testing & Review</span><br>MANTHAN</p>
+          </div>
+        </div>
+        <div class="row" style="justify-content:center; margin-top:20px;">
+          <button id="closeModal" class="btn-indian">Dhanyawad (Close)</button>
         </div>
       </div>
     </div>
