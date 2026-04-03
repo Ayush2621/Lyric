@@ -1109,12 +1109,12 @@ window.triggerSearch = (artist) => {
 };
 
 const musicCategories = [
-  { id: "trending", name: "Trending Now", color: "#E91E63", query: "Trending Music" },
-  { id: "hindi",    name: "Top Hindi",    color: "#9C27B0", query: "Latest Hindi Songs" },
-  { id: "telugu",   name: "Top Telugu",   color: "#3F51B5", query: "Latest Telugu Songs" },
-  { id: "tamil",    name: "Top Tamil",    color: "#009688", query: "Latest Tamil Songs" },
-  { id: "english",  name: "Top English",  color: "#FF9800", query: "Top Global Hits" },
-  { id: "lofi",     name: "Lofi Beats",   color: "#607D8B", query: "Lofi Hip Hop" },
+  { id: "bollywood",  name: "Bollywood Bangers",  color: "linear-gradient(135deg, #FF416C, #FF4B2B)", query: "Latest Bollywood Party Songs" },
+  { id: "sufi",       name: "Sufi Soul",          color: "linear-gradient(135deg, #11998e, #38ef7d)", query: "Best Sufi Songs" },
+  { id: "hiphop",     name: "Desi Hip-Hop",       color: "linear-gradient(135deg, #f12711, #f5af19)", query: "Indian Hip Hop Songs" },
+  { id: "retro",      name: "Retro Classics",     color: "linear-gradient(135deg, #8E2DE2, #4A00E0)", query: "Old Hindi Retro Songs" },
+  { id: "monsoon",    name: "Monsoon Melodies",   color: "linear-gradient(135deg, #2193b0, #6dd5ed)", query: "Indian Monsoon Lofi Music" },
+  { id: "devotional", name: "Divine Devotion",    color: "linear-gradient(135deg, #FF8008, #FFC837)", query: "Morning Bhakti Songs" },
 ];
 
 function renderCategories() {
